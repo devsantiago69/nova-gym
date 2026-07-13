@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 const envSchema = z.object({
-  APP_NAME: z.string().min(1).default("GymChallenge"),
+  APP_NAME: z.string().min(1).default("Nova Gym"),
   APP_URL: z.string().url().default("http://localhost:3000"),
   CORS_ORIGIN: z.string().url().default("http://localhost:3000"),
   DATABASE_URL: z.string().min(1),
@@ -18,7 +18,7 @@ const envSchema = z.object({
 });
 
 export const appConfig = {
-  name: process.env.APP_NAME ?? "GymChallenge",
+  name: process.env.APP_NAME ?? "Nova Gym",
   timezone: process.env.DEFAULT_TIMEZONE ?? "America/Bogota",
   currency: process.env.DEFAULT_CURRENCY ?? "COP",
 } as const;

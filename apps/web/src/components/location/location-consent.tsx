@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { LocateFixed, MapPin, ShieldCheck, X } from "lucide-react";
+import { locationErrorMessage, requestBrowserLocation } from "@/lib/browser-location";
 
 type PermissionState = "checking" | "prompt" | "requesting" | "granted" | "denied";
 
@@ -9,6 +10,7 @@ export function LocationConsent() {
   const [state, setState] = useState<PermissionState>("checking");
   const [accuracy, setAccuracy] = useState<number>();
   const [visible, setVisible] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     let permission: PermissionStatus | undefined;
@@ -17,8 +19,10 @@ export function LocationConsent() {
       try {
         permission = await navigator.permissions.query({ name: "geolocation" });
         const update = () => {
-          if (permission?.state === "granted") { setState("granted"); setVisible(false); }
-          else { setState(permission?.state === "denied" ? "denied" : "prompt"); setVisible(true); }
+          if (permission?.state === "granted") {
+            setState("requesting");setVisible(true);setError("");
+            void requestBrowserLocation().then(position=>{setAccuracy(Math.round(position.accuracy));setState("granted");setTimeout(()=>setVisible(false),1200);}).catch(caught=>{setState("denied");setError(locationErrorMessage(caught));setVisible(true);});
+          } else { setState(permission?.state === "denied" ? "denied" : "prompt"); setVisible(true); }
         };
         permission.addEventListener("change", update);
         update();
@@ -28,13 +32,11 @@ export function LocationConsent() {
     return () => permission?.removeEventListener("change", () => undefined);
   }, []);
 
-  function requestLocation() {
+  async function requestLocation() {
     setState("requesting");
-    navigator.geolocation.getCurrentPosition(
-      position => { setAccuracy(Math.round(position.coords.accuracy)); setState("granted"); setTimeout(() => setVisible(false), 1800); },
-      () => { setState("denied"); setVisible(true); },
-      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 },
-    );
+    setError("");
+    try { const position=await requestBrowserLocation();setAccuracy(Math.round(position.accuracy));setState("granted");setTimeout(()=>setVisible(false),1800); }
+    catch (caught) { setState("denied");setError(locationErrorMessage(caught));setVisible(true); }
   }
 
   if (!visible || state === "checking") return null;
@@ -45,7 +47,7 @@ export function LocationConsent() {
       <h2 id="location-title" className="mt-5 text-2xl font-black">Activa tu ubicación</h2>
       <p className="mt-2 muted">Nova Gym la utiliza únicamente para verificar el lugar al iniciar y finalizar una asistencia. No hacemos seguimiento continuo.</p>
       <div className="mt-5 flex gap-3 rounded-xl bg-slate-950 p-4"><ShieldCheck className="shrink-0 text-lime-400"/><p className="text-sm">Tus coordenadas son privadas y solo un administrador autorizado puede revisarlas.</p></div>
-      {state === "denied" && <p className="mt-4 rounded-xl bg-red-500/10 p-3 text-sm text-red-300">El permiso está bloqueado. Pulsa el icono de ubicación junto a la dirección del navegador, selecciona “Permitir” y vuelve a intentarlo.</p>}
+      {state === "denied" && <p className="mt-4 rounded-xl bg-red-500/10 p-3 text-sm text-red-300">{error||"El permiso está bloqueado. Pulsa el icono de ubicación junto a la dirección, selecciona Permitir y vuelve a intentarlo."}</p>}
       {state === "granted" ? <div className="mt-5 flex items-center gap-3 rounded-xl bg-lime-400/10 p-4 text-lime-300"><LocateFixed/><strong>Ubicación activada{accuracy?` · precisión ${accuracy} m`:""}</strong></div> : <button type="button" onClick={requestLocation} disabled={state === "requesting"} className="btn mt-5 w-full py-4">{state === "requesting"?"Solicitando permiso…":"Permitir ubicación"}</button>}
     </section>
   </div>;
