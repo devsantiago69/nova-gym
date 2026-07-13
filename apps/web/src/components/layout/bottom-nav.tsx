@@ -1,0 +1,3 @@
+import Link from "next/link"; import {House,Dumbbell,Trophy,Users,User} from "lucide-react";
+const items=[["/inicio","Inicio",House],["/asistencia","Asistencia",Dumbbell],["/retos","Retos",Trophy],["/comunidad","Comunidad",Users],["/perfil","Perfil",User]] as const;
+export function BottomNav(){return <nav className="fixed bottom-0 left-0 right-0 z-20 grid grid-cols-5 border-t border-slate-800 bg-slate-950/95 px-2 pb-[env(safe-area-inset-bottom)] md:hidden">{items.map(([href,label,Icon])=><Link key={href} href={href} className="flex flex-col items-center gap-1 py-3 text-[11px] text-slate-300"><Icon size={20}/>{label}</Link>)}</nav>}

@@ -1,0 +1,2 @@
+import { getServerSession } from "next-auth"; import { authOptions } from "@/lib/auth"; import { ok,fail } from "@/lib/api-response"; import { PrismaUserRepository } from "@/modules/users/repositories/prisma-user-repository";
+export async function GET(){const s=await getServerSession(authOptions);if(!s)return fail("UNAUTHORIZED","Debes iniciar sesión",401);const user=await new PrismaUserRepository().findById(s.user.id);if(!user)return fail("USER_NOT_FOUND","Usuario no encontrado",404);const {passwordHash,...safe}=user;void passwordHash;return ok(safe);}

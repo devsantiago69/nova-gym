@@ -1,0 +1,250 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  USER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING_PASSWORD_CHANGE
+}
+
+enum PlanStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  EXPIRED
+}
+
+enum AttendanceStatus {
+  IN_PROGRESS
+  COMPLETED
+  INVALIDATED
+  CANCELED
+}
+
+enum AttendancePhotoType {
+  START
+  END
+}
+
+enum PointMovementType {
+  ATTENDANCE_EARNED
+  ATTENDANCE_REVOKED
+  ADMIN_ADJUSTMENT
+  CHALLENGE_BONUS
+  CHALLENGE_BONUS_REVOKED
+}
+
+model User {
+  id                    String       @id @default(uuid()) @db.Uuid
+  email                 String       @unique @db.VarChar(255)
+  username              String       @unique @db.VarChar(40)
+  passwordHash          String       @map("password_hash") @db.VarChar(255)
+  role                   UserRole     @default(USER)
+  status                 UserStatus   @default(PENDING_PASSWORD_CHANGE)
+  whatsappNumber         String?      @unique @map("whatsapp_number") @db.VarChar(20)
+  countryCode            String?      @map("country_code") @db.VarChar(4)
+  failedLoginAttempts    Int          @default(0) @map("failed_login_attempts")
+  lockedUntil            DateTime?    @map("locked_until")
+  lastLoginAt            DateTime?    @map("last_login_at")
+  passwordChangedAt      DateTime?    @map("password_changed_at")
+  createdAt              DateTime     @default(now()) @map("created_at")
+  updatedAt              DateTime     @updatedAt @map("updated_at")
+  deletedAt              DateTime?    @map("deleted_at")
+  profile                UserProfile?
+  sessions               Session[]
+  passwordResetTokens    PasswordResetToken[]
+  subscriptions          Subscription[]
+  auditLogs              AuditLog[]   @relation("AuditActor")
+  createdUsers           User[]       @relation("UserCreator")
+  createdBy              User?        @relation("UserCreator", fields: [createdById], references: [id])
+  createdById            String?      @map("created_by_id") @db.Uuid
+  attendances            Attendance[]
+  attendancePhotos       AttendancePhoto[]
+  pointMovements         PointLedger[] @relation("PointOwner")
+  pointMovementsCreated  PointLedger[] @relation("PointActor")
+  @@index([status])
+  @@map("users")
+}
+
+model Attendance {
+  id                    String           @id @default(uuid()) @db.Uuid
+  userId                String           @map("user_id") @db.Uuid
+  localDate             DateTime         @map("local_date") @db.Date
+  timezone              String           @db.VarChar(80)
+  status                AttendanceStatus @default(IN_PROGRESS)
+  startedAt             DateTime         @default(now()) @map("started_at")
+  startLatitude         Decimal?         @map("start_latitude") @db.Decimal(9, 6)
+  startLongitude        Decimal?         @map("start_longitude") @db.Decimal(9, 6)
+  startAccuracyMeters   Decimal?         @map("start_accuracy_meters") @db.Decimal(8, 2)
+  finishedAt            DateTime?        @map("finished_at")
+  endLatitude           Decimal?         @map("end_latitude") @db.Decimal(9, 6)
+  endLongitude          Decimal?         @map("end_longitude") @db.Decimal(9, 6)
+  endAccuracyMeters     Decimal?         @map("end_accuracy_meters") @db.Decimal(8, 2)
+  durationMinutes       Int?             @map("duration_minutes")
+  notes                 String?          @db.VarChar(500)
+  invalidatedAt         DateTime?        @map("invalidated_at")
+  invalidatedById       String?          @map("invalidated_by_id") @db.Uuid
+  invalidationReason    String?          @map("invalidation_reason") @db.VarChar(500)
+  createdAt             DateTime         @default(now()) @map("created_at")
+  updatedAt             DateTime         @updatedAt @map("updated_at")
+  user                  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  photos                AttendancePhoto[]
+  pointMovements        PointLedger[]
+
+  @@unique([userId, localDate])
+  @@index([userId, status])
+  @@index([localDate])
+  @@map("attendances")
+}
+
+model AttendancePhoto {
+  id          String              @id @default(uuid()) @db.Uuid
+  attendanceId String             @map("attendance_id") @db.Uuid
+  ownerId     String              @map("owner_id") @db.Uuid
+  type        AttendancePhotoType
+  objectKey   String              @map("object_key") @db.VarChar(500)
+  mimeType    String              @map("mime_type") @db.VarChar(100)
+  sizeBytes   Int                 @map("size_bytes")
+  checksum    String              @db.Char(64)
+  width       Int?
+  height      Int?
+  createdAt   DateTime            @default(now()) @map("created_at")
+  attendance  Attendance          @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  owner       User                @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@unique([attendanceId, type])
+  @@index([ownerId, createdAt])
+  @@map("attendance_photos")
+}
+
+model PointLedger {
+  id             String            @id @default(uuid()) @db.Uuid
+  userId         String            @map("user_id") @db.Uuid
+  attendanceId   String?           @map("attendance_id") @db.Uuid
+  amount         Int
+  type           PointMovementType
+  sourceType     String            @map("source_type") @db.VarChar(80)
+  sourceId       String?           @map("source_id") @db.Uuid
+  description    String?           @db.VarChar(500)
+  logicalDate    DateTime?         @map("logical_date") @db.Date
+  actorId        String?           @map("actor_id") @db.Uuid
+  idempotencyKey String            @unique @map("idempotency_key") @db.VarChar(160)
+  createdAt      DateTime          @default(now()) @map("created_at")
+  user           User              @relation("PointOwner", fields: [userId], references: [id], onDelete: Cascade)
+  actor          User?             @relation("PointActor", fields: [actorId], references: [id])
+  attendance     Attendance?       @relation(fields: [attendanceId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([userId, logicalDate])
+  @@map("point_ledger")
+}
+
+model UserProfile {
+  id                 String   @id @default(uuid()) @db.Uuid
+  userId             String   @unique @map("user_id") @db.Uuid
+  firstName          String   @map("first_name") @db.VarChar(100)
+  lastName           String   @map("last_name") @db.VarChar(100)
+  avatarKey          String?  @map("avatar_key") @db.VarChar(500)
+  bio                String?  @db.VarChar(280)
+  timezone           String   @default("America/Bogota") @db.VarChar(80)
+  currency           String   @default("COP") @db.Char(3)
+  showActiveChallenges Boolean @default(true) @map("show_active_challenges")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@map("user_profiles")
+}
+
+model Session {
+  id           String   @id @default(uuid()) @db.Uuid
+  sessionToken String   @unique @map("session_token") @db.VarChar(255)
+  userId       String   @map("user_id") @db.Uuid
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+  @@map("sessions")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash") @db.VarChar(255)
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, expiresAt])
+  @@map("password_reset_tokens")
+}
+
+model Plan {
+  id                  String     @id @default(uuid()) @db.Uuid
+  name                String     @db.VarChar(80)
+  code                String     @unique @db.VarChar(30)
+  description         String?    @db.VarChar(500)
+  monthlyPrice        Decimal    @default(0) @map("monthly_price") @db.Decimal(12,2)
+  currency            String     @default("COP") @db.Char(3)
+  status              PlanStatus @default(ACTIVE)
+  trialDays           Int        @default(0) @map("trial_days")
+  storageLimitMb      Int        @map("storage_limit_mb")
+  activeChallengeLimit Int       @map("active_challenge_limit")
+  friendLimit         Int        @map("friend_limit")
+  historyMonths       Int?       @map("history_months")
+  expensesEnabled     Boolean    @default(false) @map("expenses_enabled")
+  whatsappEnabled     Boolean    @default(false) @map("whatsapp_enabled")
+  advancedStatsEnabled Boolean   @default(false) @map("advanced_stats_enabled")
+  exportsEnabled      Boolean    @default(false) @map("exports_enabled")
+  createdAt           DateTime   @default(now()) @map("created_at")
+  updatedAt           DateTime   @updatedAt @map("updated_at")
+  subscriptions       Subscription[]
+  @@map("plans")
+}
+
+model Subscription {
+  id        String             @id @default(uuid()) @db.Uuid
+  userId    String             @map("user_id") @db.Uuid
+  planId    String             @map("plan_id") @db.Uuid
+  status    SubscriptionStatus @default(ACTIVE)
+  startsAt  DateTime           @default(now()) @map("starts_at")
+  endsAt    DateTime?          @map("ends_at")
+  createdAt DateTime           @default(now()) @map("created_at")
+  updatedAt DateTime           @updatedAt @map("updated_at")
+  user      User               @relation(fields: [userId], references: [id])
+  plan      Plan               @relation(fields: [planId], references: [id])
+  @@index([userId, status])
+  @@map("subscriptions")
+}
+
+model AuditLog {
+  id            String   @id @default(uuid()) @db.Uuid
+  actorId       String?  @map("actor_id") @db.Uuid
+  action        String   @db.VarChar(100)
+  entityType    String   @map("entity_type") @db.VarChar(80)
+  entityId      String?  @map("entity_id") @db.Uuid
+  previousValues Json?   @map("previous_values")
+  newValues      Json?   @map("new_values")
+  ipAddress      String? @map("ip_address") @db.VarChar(64)
+  userAgent      String? @map("user_agent") @db.VarChar(500)
+  correlationId String   @map("correlation_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+  actor          User?    @relation("AuditActor", fields: [actorId], references: [id])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}

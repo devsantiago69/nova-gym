@@ -1,0 +1,1 @@
+import { prisma } from "@gymchallenge/database"; import { ok,fail } from "@/lib/api-response"; export async function GET(){try{await prisma.$queryRaw`SELECT 1`;return ok({status:"ready",database:"available"},"Servicio listo");}catch{return fail("SERVICE_UNAVAILABLE","El servicio aún no está listo",503);}}

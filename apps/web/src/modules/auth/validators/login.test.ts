@@ -1,0 +1,2 @@
+import {describe,it,expect} from "vitest"; import {loginSchema} from "./login";
+describe("loginSchema",()=>{it("acepta usuario con o sin arroba",()=>{expect(loginSchema.parse({identifier:"@santiago",password:"password-seguro"}).identifier).toBe("santiago")});it("rechaza correo electrónico",()=>{expect(loginSchema.safeParse({identifier:"santiago@example.com",password:"password-seguro"}).success).toBe(false)});it("rechaza contraseñas cortas",()=>{expect(loginSchema.safeParse({identifier:"santiago",password:"123"}).success).toBe(false)})});
