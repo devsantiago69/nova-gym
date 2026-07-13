@@ -21,7 +21,19 @@ export async function requestBrowserLocation(force = false): Promise<BrowserLoca
   const recent = force ? undefined : recentBrowserLocation();
   if (recent) return recent;
   if (!("geolocation" in navigator)) throw new Error("GEOLOCATION_UNSUPPORTED");
-  const locate = (options: PositionOptions) => new Promise<GeolocationPosition>((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, options));
+  const locate = (options: PositionOptions) => new Promise<GeolocationPosition>((resolve, reject) => {
+    const hardTimeout = window.setTimeout(() => {
+      const error = new Error("GEOLOCATION_TIMEOUT") as Error & { code: number };
+      error.name = "TimeoutError";
+      error.code = 3;
+      reject(error);
+    }, (options.timeout ?? 20_000) + 2_000);
+    navigator.geolocation.getCurrentPosition(
+      (position) => { window.clearTimeout(hardTimeout); resolve(position); },
+      (error) => { window.clearTimeout(hardTimeout); reject(error); },
+      options,
+    );
+  });
   try { return saveBrowserLocation(await locate({ enableHighAccuracy: true, timeout: 20_000, maximumAge: 30_000 })); }
   catch (firstError) {
     const code = Number((firstError as { code?: unknown })?.code);

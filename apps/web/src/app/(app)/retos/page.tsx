@@ -30,7 +30,7 @@ export default async function Page() {
   const currentUserId = session!.user.id;
   await syncUserActiveChallenges(currentUserId);
 
-  const [categories, challenges, friendships] = await Promise.all([
+  const [categories, challenges, friendships, consumedViews, currentUser] = await Promise.all([
     prisma.challengeCategory.findMany({ where: { status: "ACTIVE" }, orderBy: { durationDays: "asc" } }),
     prisma.challenge.findMany({
       where: { participants: { some: { userId: currentUserId } } },
@@ -57,7 +57,10 @@ export default async function Page() {
       where: { status: "ACCEPTED", OR: [{ requesterId: currentUserId }, { addresseeId: currentUserId }] },
       include: { requester: { include: { profile: true } }, addressee: { include: { profile: true } } },
     }),
+    prisma.challengeEvidenceView.findMany({ where: { viewerId: currentUserId }, select: { challengeId: true, attendanceId: true } }),
+    prisma.user.findUnique({ where: { id: currentUserId }, select: { username: true } }),
   ]);
+  const consumedAttendanceIds = new Set(consumedViews.map((view) => view.attendanceId));
 
   const friends = friendships
     .map((row) => row.requesterId === currentUserId ? row.addressee : row.requester)
@@ -71,27 +74,41 @@ export default async function Page() {
     .filter((challenge) => challenge.status === "PENDING" && challenge.creatorId !== currentUserId && challenge.participants.some((participant) => participant.userId === currentUserId && participant.acceptedAt === null))
     .map((challenge) => ({ id: challenge.id, category: challenge.category.name, creator: challenge.creator.profile?.firstName ?? challenge.creator.username }));
 
-  const evidence = challenges.flatMap((challenge) => challenge.scoreEvents.map((event): ChallengeEvidence => {
-    const reviews = event.attendance.challengeReviews.filter((review) => review.challengeId === challenge.id);
-    return {
-      evidenceKey: `${challenge.id}:${event.attendanceId}`,
-      challengeId: challenge.id,
-      challengeName: challenge.category.name,
+  const evidenceByAttendance = new Map<string, ChallengeEvidence>();
+  for (const challenge of challenges) for (const event of challenge.scoreEvents) {
+    const existing = evidenceByAttendance.get(event.attendanceId);
+    const challengeLabels = existing?.challenges ?? [];
+    const challengesForAttendance = challengeLabels.some((item) => item.id === challenge.id)
+      ? challengeLabels
+      : [...challengeLabels, { id: challenge.id, name: challenge.category.name }];
+    const verdictByReviewer = new Map<string, "CONFIRMED" | "REJECTED">();
+    for (const review of event.attendance.challengeReviews) {
+      const current = verdictByReviewer.get(review.reviewerId);
+      if (!current || review.verdict === "REJECTED") verdictByReviewer.set(review.reviewerId, review.verdict);
+    }
+    const verdicts = [...verdictByReviewer.values()];
+    evidenceByAttendance.set(event.attendanceId, {
+      evidenceKey: event.attendanceId,
+      challengeId: existing?.challengeId ?? challenge.id,
+      challengeName: existing?.challengeName ?? challenge.category.name,
+      challenges: challengesForAttendance,
       attendanceId: event.attendanceId,
       ownerId: event.userId,
       ownerName: event.user.profile?.firstName ?? event.user.username,
       username: event.user.username,
       localDate: event.attendance.localDate.toISOString(),
       durationMinutes: event.attendance.durationMinutes,
-      latitude: event.attendance.startLatitude === null ? null : Number(event.attendance.startLatitude),
-      longitude: event.attendance.startLongitude === null ? null : Number(event.attendance.startLongitude),
-      accuracy: event.attendance.startAccuracyMeters === null ? null : Number(event.attendance.startAccuracyMeters),
+      latitude: event.userId === currentUserId && event.attendance.startLatitude !== null ? Number(event.attendance.startLatitude) : null,
+      longitude: event.userId === currentUserId && event.attendance.startLongitude !== null ? Number(event.attendance.startLongitude) : null,
+      accuracy: event.userId === currentUserId && event.attendance.startAccuracyMeters !== null ? Number(event.attendance.startAccuracyMeters) : null,
       photos: event.attendance.photos,
-      myVerdict: reviews.find((review) => review.reviewerId === currentUserId)?.verdict ?? null,
-      confirmed: reviews.filter((review) => review.verdict === "CONFIRMED").length,
-      rejected: reviews.filter((review) => review.verdict === "REJECTED").length,
-    };
-  })).sort((left, right) => new Date(right.localDate).getTime() - new Date(left.localDate).getTime());
+      myVerdict: verdictByReviewer.get(currentUserId) ?? null,
+      confirmed: verdicts.filter((verdict) => verdict === "CONFIRMED").length,
+      rejected: verdicts.filter((verdict) => verdict === "REJECTED").length,
+      viewConsumed: consumedAttendanceIds.has(event.attendanceId),
+    });
+  }
+  const evidence = [...evidenceByAttendance.values()].sort((left, right) => new Date(right.localDate).getTime() - new Date(left.localDate).getTime());
 
   return <section className="pb-8">
     <div className="mb-6">
@@ -100,7 +117,7 @@ export default async function Page() {
       <p className="mt-2 max-w-3xl muted">Comparte tu progreso con tu equipo. Cada asistencia válida suma al reto sin mezclar sus puntos con tu clasificación global.</p>
     </div>
 
-    <ChallengeEvidenceFeed currentUserId={currentUserId} initial={evidence} />
+    <ChallengeEvidenceFeed currentUserId={currentUserId} currentUsername={currentUser?.username ?? "privado"} initial={evidence} />
 
     <section className="mb-9">
       <div className="mb-4 flex items-end justify-between gap-4">

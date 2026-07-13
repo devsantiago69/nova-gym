@@ -25,7 +25,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const completed = await prisma.$transaction(async (tx) => {
       await tx.attendancePhoto.create({ data: { attendanceId: id, ownerId: session.user.id, type: "END", objectKey: key, mimeType: image.mimeType, sizeBytes: image.size, checksum: image.checksum, width: image.width, height: image.height } });
       const row = await tx.attendance.update({ where: { id }, data: { status: "COMPLETED", finishedAt: now, durationMinutes: duration,endLatitude:latitude,endLongitude:longitude,endAccuracyMeters:Number.isFinite(accuracy)?accuracy:null } });
-      await tx.pointLedger.create({ data: { userId: session.user.id, attendanceId: id, amount: 1, type: "ATTENDANCE_EARNED", sourceType: "Attendance", sourceId: id, logicalDate: attendance.localDate, description: "Asistencia completada", idempotencyKey: `attendance:${id}:earned` } });
+      const previousDailyPoint = await tx.pointLedger.findFirst({
+        where: { userId: session.user.id, logicalDate: attendance.localDate, type: "ATTENDANCE_EARNED" },
+      });
+      if (previousDailyPoint?.attendanceId && previousDailyPoint.attendanceId !== id) {
+        throw new DomainError("DAILY_ATTENDANCE_EXISTS", "Ya existe otra asistencia válida para este día");
+      }
+      if (previousDailyPoint) {
+        await tx.pointLedger.update({
+          where: { id: previousDailyPoint.id },
+          data: { attendanceId: id, sourceId: id, description: "Asistencia completada", idempotencyKey: `attendance:${id}:earned` },
+        });
+      } else {
+        await tx.pointLedger.create({ data: { userId: session.user.id, attendanceId: id, amount: 1, type: "ATTENDANCE_EARNED", sourceType: "Attendance", sourceId: id, logicalDate: attendance.localDate, description: "Asistencia completada", idempotencyKey: `attendance:${id}:earned` } });
+      }
       const activeChallenges=await tx.challengeParticipant.findMany({where:{userId:session.user.id,challenge:{status:"ACTIVE",startsAt:{lte:now},endsAt:{gte:now}}},select:{challengeId:true}});
       for(const participant of activeChallenges)await syncChallengeProgressInTransaction(tx,participant.challengeId);
       return row;
@@ -72,5 +85,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       console.error("[attendance] Completion saved but notification dispatch failed", notificationError);
     }
     return ok(completed, "Entrenamiento finalizado. Ganaste 1 punto.");
-  } catch (error) { if (error instanceof DomainError) return fail(error.code, error.message, 422); return fail("INTERNAL_ERROR", "No fue posible finalizar el entrenamiento", 500); }
+  } catch (error) { if (error instanceof DomainError) return fail(error.code, error.message, 422); console.error("attendance.finish.failed", { attendanceId: (await params).id, userId: session.user.id, error }); return fail("INTERNAL_ERROR", "No fue posible finalizar el entrenamiento", 500); }
 }

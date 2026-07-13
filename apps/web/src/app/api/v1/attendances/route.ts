@@ -25,7 +25,10 @@ export async function POST(request: Request) {
     const form = await request.formData(); const file = form.get("photo"); const location=coordinates(form);
     if (!(file instanceof File)) throw new DomainError("PHOTO_REQUIRED", "La fotografía inicial es obligatoria");
     const profile = await prisma.userProfile.findUniqueOrThrow({ where: { userId: session.user.id } });
-    const date = localDate(profile.timezone); const image = await normalizeAttendanceImage(file); const storage = await canStoreBytes(session.user.id, image.size);
+    const date = localDate(profile.timezone);
+    const existing = await prisma.attendance.findUnique({ where: { userId_localDate: { userId: session.user.id, localDate: date } }, select: { status: true } });
+    if (existing) return fail("ATTENDANCE_ALREADY_EXISTS", existing.status === "COMPLETED" ? "Ya completaste el entrenamiento de hoy. Vuelve mañana para continuar tu racha." : "Ya tienes un registro de entrenamiento para hoy", 409);
+    const image = await normalizeAttendanceImage(file); const storage = await canStoreBytes(session.user.id, image.size);
     if (!storage.plan) return fail("PLAN_REQUIRED", "Necesitas un plan activo para registrar evidencias", 403);
     if (!storage.allowed) return fail("STORAGE_LIMIT_REACHED", `Alcanzaste los ${storage.plan.storageLimitMb} MB de almacenamiento de tu plan`, 409);
     const attendanceId = crypto.randomUUID();
