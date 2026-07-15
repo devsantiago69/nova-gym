@@ -32,3 +32,7 @@ export async function getPrivateObject(key: string) {
   if (!result.Body) throw new Error("Empty storage object");
   return { body: await result.Body.transformToByteArray(), contentType: result.ContentType ?? "application/octet-stream" };
 }
+
+export async function checkPrivateStorage() {
+  await client.send(new HeadBucketCommand({ Bucket: bucket }));
+}

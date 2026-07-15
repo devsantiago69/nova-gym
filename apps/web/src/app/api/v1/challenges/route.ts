@@ -13,8 +13,8 @@ export async function POST(request: Request) {
 
   if (body?.action === "create" && body.categoryId) {
     const targetIds = [...new Set(Array.isArray(body.targetIds) ? body.targetIds : body.targetId ? [body.targetId] : [])].filter((id) => id !== session.user.id);
-    if (targetIds.length < 1 || targetIds.length > 3) return fail("INVALID_TEAM_SIZE", "Selecciona entre 1 y 3 amigos", 422);
-    const friendships = await prisma.friendship.count({
+    if (targetIds.length > 3) return fail("INVALID_TEAM_SIZE", "Puedes invitar máximo 3 amigos", 422);
+    const friendships = targetIds.length === 0 ? 0 : await prisma.friendship.count({
       where: {
         status: "ACCEPTED",
         OR: targetIds.flatMap((targetId) => [
@@ -36,8 +36,10 @@ export async function POST(request: Request) {
       data: {
         categoryId: category.id,
         creatorId: session.user.id,
+        status: targetIds.length === 0 ? "ACTIVE" : "PENDING",
         startsAt,
         endsAt,
+        acceptedAt: targetIds.length === 0 ? startsAt : null,
         participants: { create: [{ userId: session.user.id, acceptedAt: startsAt }, ...targetIds.map((userId) => ({ userId }))] },
       },
     });
@@ -52,7 +54,7 @@ export async function POST(request: Request) {
       data: { challengeId: challenge.id },
       dedupeKey: `challenge-invite:${challenge.id}:${userId}`,
     })));
-    return ok(challenge, `Invitación enviada a ${targetIds.length} ${targetIds.length === 1 ? "amigo" : "amigos"}`, 201);
+    return ok(challenge, targetIds.length === 0 ? "Tu reto personal comenzó. ¡Primer día, primera oportunidad!" : `Invitación enviada a ${targetIds.length} ${targetIds.length === 1 ? "amigo" : "amigos"}`, 201);
   }
 
   if (body?.action === "accept" && body.challengeId) {

@@ -44,27 +44,30 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return row;
     });
     try {
-      const [actorName, friendships, memberships] = await Promise.all([
+      const [actorName, memberships] = await Promise.all([
         userDisplayName(session.user.id),
-        prisma.friendship.findMany({
-          where: { status: "ACCEPTED", OR: [{ requesterId: session.user.id }, { addresseeId: session.user.id }] },
-          select: { requesterId: true, addresseeId: true },
-        }),
         prisma.challengeParticipant.findMany({
           where: { userId: session.user.id, challenge: { status: "ACTIVE" } },
           include: { challenge: { include: { category: true, participants: { where: { acceptedAt: { not: null } }, select: { userId: true } } } } },
         }),
       ]);
-      const friendIds = [...new Set(friendships.map((friendship) => friendship.requesterId === session.user.id ? friendship.addresseeId : friendship.requesterId))];
-      await createNotifications(friendIds.map((userId) => ({
+      const validationTargets = new Map<string, { challengeIds: string[]; challengeNames: string[] }>();
+      for (const membership of memberships) for (const participant of membership.challenge.participants) {
+        if (participant.userId === session.user.id) continue;
+        const current = validationTargets.get(participant.userId) ?? { challengeIds: [], challengeNames: [] };
+        current.challengeIds.push(membership.challengeId);
+        current.challengeNames.push(membership.challenge.category.name);
+        validationTargets.set(participant.userId, current);
+      }
+      await createNotifications([...validationTargets.entries()].map(([userId, target]) => ({
         userId,
         actorId: session.user.id,
         type: "ATTENDANCE_COMPLETED" as const,
-        title: `${actorName} terminó su entrenamiento`,
-        body: `${duration} minutos completados. Su evidencia ya está disponible para el equipo.`,
-        href: "/retos",
-        data: { attendanceId: id, durationMinutes: duration },
-        dedupeKey: `attendance-completed:${id}:${userId}`,
+        title: "Nueva evidencia por validar",
+        body: `${actorName} completó ${duration} minutos en ${target.challengeNames[0]}. Tu voto está pendiente.`,
+        href: `/retos?challenge=${encodeURIComponent(target.challengeIds[0]!)}`,
+        data: { attendanceId: id, durationMinutes: duration, challengeIds: target.challengeIds, votePending: true },
+        dedupeKey: `attendance-evidence-pending:${id}:${userId}`,
       })));
       for (const membership of memberships) {
         const targetScore = membership.challenge.category.targetAttendances * Math.max(1, membership.challenge.category.pointsPerAttendance);

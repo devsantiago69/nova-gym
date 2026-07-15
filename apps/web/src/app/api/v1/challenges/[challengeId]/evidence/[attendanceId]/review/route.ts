@@ -30,7 +30,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cha
   const evidenceOwnerId = eligibleEvents[0]?.userId;
   if (!evidenceOwnerId || !challengeIds.includes(challengeId)) return fail("NOT_FOUND", "Evidencia no encontrada en tus retos compartidos", 404);
   const view = await prisma.challengeEvidenceView.findUnique({ where: { attendanceId_viewerId: { attendanceId, viewerId: session.user.id } } });
-  if (!view || view.challengeId !== challengeId || view.decidedAt || view.expiresAt.getTime() < Date.now() || !evidenceTokenMatches(parsed.data.viewToken, view.tokenHash)) return fail("PRIVATE_VIEW_EXPIRED", "Los 10 segundos de verificación terminaron", 410);
+  if (!view || view.challengeId !== challengeId || view.decidedAt || view.expiresAt.getTime() < Date.now() || !evidenceTokenMatches(parsed.data.viewToken, view.tokenHash)) return fail("PRIVATE_VIEW_EXPIRED", "La ventana de verificación terminó. Puedes abrir una nueva mientras tu voto siga pendiente.", 410);
   const previousReview = await prisma.challengeAttendanceReview.findFirst({ where: { challengeId: { in: challengeIds }, attendanceId, reviewerId: session.user.id }, select: { id: true } });
   if (previousReview) return fail("EVIDENCE_ALREADY_REVIEWED", "Ya registraste tu decisión para esta evidencia", 409);
 

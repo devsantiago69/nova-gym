@@ -1,6 +1,11 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
-export const EVIDENCE_VIEW_SECONDS = 10;
+export const DEFAULT_EVIDENCE_VIEW_SECONDS = 10;
+export const EVIDENCE_VIEW_SECONDS = DEFAULT_EVIDENCE_VIEW_SECONDS;
+
+export function normalizeEvidenceViewSeconds(value: number | null | undefined) {
+  return [5, 10, 15, 20].includes(value ?? 0) ? value! : DEFAULT_EVIDENCE_VIEW_SECONDS;
+}
 
 export function createEvidenceViewToken() {
   const token = randomBytes(32).toString("base64url");

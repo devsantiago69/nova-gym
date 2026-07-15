@@ -27,6 +27,7 @@ import {
   X,
 } from "lucide-react";
 import { AttendanceDetailStory, type AttendanceStoryData } from "@/components/attendance/attendance-detail-story";
+import { ProtectedImage } from "@/components/media/protected-image";
 import {
   type BrowserLocation,
   locationErrorMessage,
@@ -52,7 +53,7 @@ function statusLabel(status: string) {
   return status;
 }
 
-export function AttendanceManager({ initial, todayKey, locale }: { initial: Attendance[]; todayKey: string; locale: "es" | "en" }) {
+export function AttendanceManager({ initial, todayKey, locale, storyDurationSeconds }: { initial: Attendance[]; todayKey: string; locale: "es" | "en"; storyDurationSeconds: number }) {
   const dateLocale = locale === "en" ? "en-US" : "es-CO";
   const weekDays = locale === "en" ? ["M", "T", "W", "T", "F", "S", "S"] : ["L", "M", "M", "J", "V", "S", "D"];
   const [rows] = useState(initial);
@@ -199,7 +200,7 @@ export function AttendanceManager({ initial, todayKey, locale }: { initial: Atte
           <p className="mt-6 inline-flex items-center gap-2 text-xs text-slate-400"><ShieldCheck size={15} className="text-lime-300"/>Tu día está protegido: Nova Gym acepta máximo un entrenamiento diario.</p>
         </div>
         <div className="relative min-h-[280px] border-t border-slate-800 bg-slate-950/70 lg:min-h-full lg:border-l lg:border-t-0">
-          {todayCompleted.photos[0] ? <><Image src={`/api/v1/attendance-photos/${todayCompleted.photos[0].id}`} alt="Tu logro de hoy" fill unoptimized className="object-cover opacity-75"/><div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/15 to-transparent"/><div className="absolute inset-x-0 bottom-0 p-6"><span className="inline-flex items-center gap-2 rounded-full bg-black/55 px-3 py-2 text-xs font-black text-lime-200 backdrop-blur"><Flame size={15} className="fill-orange-400/20 text-orange-400"/>RACHA ENCENDIDA</span><p className="mt-3 text-xl font-black">Vuelve mañana por el siguiente día.</p></div></> : <div className="grid h-full min-h-[280px] place-content-center px-8 text-center"><div className="mx-auto grid h-24 w-24 place-items-center rounded-full border border-lime-300/20 bg-lime-300/10"><Trophy className="h-12 w-12 text-lime-300"/></div><p className="mt-5 text-2xl font-black">Día conquistado</p></div>}
+          {todayCompleted.photos[0] ? <><ProtectedImage src={`/api/v1/attendance-photos/${todayCompleted.photos[0].id}`} alt="Tu logro de hoy" className="object-cover opacity-75"/><div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/15 to-transparent"/><div className="absolute inset-x-0 bottom-0 p-6"><span className="inline-flex items-center gap-2 rounded-full bg-black/55 px-3 py-2 text-xs font-black text-lime-200 backdrop-blur"><Flame size={15} className="fill-orange-400/20 text-orange-400"/>RACHA ENCENDIDA</span><p className="mt-3 text-xl font-black">Vuelve mañana por el siguiente día.</p></div></> : <div className="grid h-full min-h-[280px] place-content-center px-8 text-center"><div className="mx-auto grid h-24 w-24 place-items-center rounded-full border border-lime-300/20 bg-lime-300/10"><Trophy className="h-12 w-12 text-lime-300"/></div><p className="mt-5 text-2xl font-black">Día conquistado</p></div>}
         </div>
       </div>
     </section> : todayAttendance && !active ? <section className="card border-orange-400/20 bg-gradient-to-br from-slate-900 to-orange-950/20 p-7 text-center sm:p-10"><div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-orange-400/10"><Clock3 className="h-8 w-8 text-orange-300"/></div><h2 className="mt-5 text-3xl font-black">El registro de hoy está cerrado</h2><p className="mx-auto mt-2 max-w-xl muted">Nova Gym protege la regla de un solo entrenamiento diario. Mañana podrás comenzar un nuevo día de tu recorrido.</p><Link href="/retos" className="mt-6 inline-flex items-center gap-2 rounded-xl border border-orange-400/30 px-5 py-3 font-black text-orange-200"><Flame size={18}/>Ver mis retos</Link></section> : <form onSubmit={(event) => send(event, active ? `/api/v1/attendances/${active.id}/finish` : "/api/v1/attendances")} className="card overflow-hidden">
@@ -276,7 +277,7 @@ export function AttendanceManager({ initial, todayKey, locale }: { initial: Atte
       </section>
     </div>
     {selectedAttendance && (
-      <AttendanceDetailStory attendance={selectedAttendance} locale={locale} onClose={() => setSelectedAttendance(undefined)}/>
+      <AttendanceDetailStory attendance={selectedAttendance} locale={locale} storyDurationSeconds={storyDurationSeconds} onClose={() => setSelectedAttendance(undefined)}/>
     )}
   </div>;
 }

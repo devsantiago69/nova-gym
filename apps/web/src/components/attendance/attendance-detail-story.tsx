@@ -1,8 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, ExternalLink, Flame, MapPin, Navigation, ShieldCheck, Timer, Trophy, X } from "lucide-react";
+import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, ExternalLink, Flame, MapPin, Navigation, Pause, Play, ShieldCheck, Timer, Trophy, X } from "lucide-react";
+import { ProtectedImage } from "@/components/media/protected-image";
 
 export type AttendanceStoryData = {
   id: string;
@@ -26,11 +26,14 @@ function mapUrl(latitude: number, longitude: number) {
   return `https://www.google.com/maps?q=${latitude},${longitude}`;
 }
 
-export function AttendanceDetailStory({ attendance, onClose, locale }: { attendance: AttendanceStoryData; onClose: () => void; locale: "es" | "en" }) {
+export function AttendanceDetailStory({ attendance, onClose, locale, storyDurationSeconds }: { attendance: AttendanceStoryData; onClose: () => void; locale: "es" | "en"; storyDurationSeconds: number }) {
   const dateLocale = locale === "en" ? "en-US" : "es-CO";
   const photos = useMemo(() => [...attendance.photos].sort((a, b) => (a.type === "START" ? -1 : b.type === "START" ? 1 : 0)), [attendance.photos]);
   const stripRef = useRef<HTMLDivElement>(null);
+  const expiredPhotoRef = useRef<number | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [remainingMs, setRemainingMs] = useState(storyDurationSeconds * 1000);
+  const [paused, setPaused] = useState(false);
   const date = new Date(attendance.localDate);
   const points = attendance.pointMovements.reduce((total, movement) => total + movement.amount, 0);
 
@@ -54,18 +57,37 @@ export function AttendanceDetailStory({ attendance, onClose, locale }: { attenda
     setActiveIndex(Math.round(strip.scrollLeft / strip.clientWidth));
   }
 
+  useEffect(() => {
+    expiredPhotoRef.current = null;
+    setRemainingMs(storyDurationSeconds * 1000);
+    setPaused(false);
+  }, [activeIndex, storyDurationSeconds]);
+
+  useEffect(() => {
+    if (paused) return;
+    const timer = window.setInterval(() => setRemainingMs((value) => {
+      const next = Math.max(0, value - 100);
+      if (next <= 0 && expiredPhotoRef.current !== activeIndex) {
+        expiredPhotoRef.current = activeIndex;
+        window.setTimeout(() => activeIndex < photos.length - 1 ? goTo(activeIndex + 1) : onClose(), 0);
+      }
+      return next;
+    }), 100);
+    return () => window.clearInterval(timer);
+  }, [activeIndex, paused, photos.length, onClose]);
+
   return <div role="dialog" aria-modal="true" aria-label="Detalles del entrenamiento" className="fixed inset-0 z-[90] bg-[#02050a] sm:grid sm:place-items-center sm:bg-slate-950/90 sm:p-5 sm:backdrop-blur-xl">
     <section className="relative mx-auto flex h-full w-full max-w-md flex-col overflow-hidden bg-[#050a14] sm:h-[min(860px,94vh)] sm:rounded-[2.25rem] sm:border sm:border-slate-700 sm:shadow-2xl">
       <div className="absolute inset-x-0 top-0 z-30 bg-gradient-to-b from-black/90 via-black/35 to-transparent px-4 pb-12 pt-3">
-        <div className="flex gap-1.5">{photos.map((photo, index) => <span key={photo.id} className="h-1 flex-1 overflow-hidden rounded-full bg-white/25"><span className={`block h-full rounded-full bg-lime-400 transition-all duration-300 ${index <= activeIndex ? "w-full" : "w-0"}`}/></span>)}</div>
+        <div className="flex gap-1.5">{photos.map((photo, index) => <span key={photo.id} className="h-1 flex-1 overflow-hidden rounded-full bg-white/25"><span className="block h-full rounded-full bg-lime-400 transition-[width] duration-100" style={{ width: `${index < activeIndex ? 100 : index > activeIndex ? 0 : Math.max(0, Math.min(100, remainingMs / (storyDurationSeconds * 1000) * 100))}%` }}/></span>)}</div>
         <div className="mt-3 flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-lime-400 font-black text-slate-950"><Flame size={20}/></span><div className="min-w-0"><strong className="block truncate text-sm text-white">Mi entrenamiento</strong><span className="block text-xs capitalize text-slate-300">{date.toLocaleDateString(dateLocale, { timeZone: "UTC", weekday: "long", day: "numeric", month: "short" })}</span></div></div>
-          <button type="button" onClick={onClose} aria-label="Cerrar detalles" className="grid h-10 w-10 place-items-center rounded-full bg-black/45 text-white backdrop-blur-md"><X size={22}/></button>
+          <div className="flex gap-2"><button type="button" onClick={() => setPaused((value) => !value)} aria-label={paused ? "Reanudar historia" : "Pausar historia"} className="grid h-10 w-10 place-items-center rounded-full bg-black/45 text-white backdrop-blur-md">{paused ? <Play size={19}/> : <Pause size={19}/>}</button><button type="button" onClick={onClose} aria-label="Cerrar detalles" className="grid h-10 w-10 place-items-center rounded-full bg-black/45 text-white backdrop-blur-md"><X size={22}/></button></div>
         </div>
       </div>
 
       <div className="relative h-[57vh] min-h-[380px] shrink-0 overflow-hidden bg-black sm:h-[58%]">
-        {photos.length > 0 ? <div ref={stripRef} onScroll={updateIndex} className="flex h-full snap-x snap-mandatory overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{photos.map((photo) => <article key={photo.id} className="relative h-full min-w-full snap-center"><Image src={`/api/v1/attendance-photos/${photo.id}`} alt={photo.type === "START" ? "Evidencia de inicio" : "Evidencia final"} fill unoptimized priority className="object-contain"/><span className="absolute bottom-5 left-1/2 -translate-x-1/2 rounded-full border border-white/15 bg-black/65 px-4 py-2 text-xs font-black uppercase tracking-[.15em] text-white backdrop-blur-lg">{photo.type === "START" ? "Inicio" : "Meta cumplida"}</span></article>)}</div> : <div className="grid h-full place-items-center text-center"><div><ShieldCheck className="mx-auto h-12 w-12 text-slate-600"/><p className="mt-3 font-bold text-slate-400">Sin evidencia disponible</p></div></div>}
+        {photos.length > 0 ? <div ref={stripRef} onScroll={updateIndex} className="flex h-full snap-x snap-mandatory overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{photos.map((photo) => <article key={photo.id} className="relative h-full min-w-full snap-center"><ProtectedImage src={`/api/v1/attendance-photos/${photo.id}`} alt={photo.type === "START" ? "Evidencia de inicio" : "Evidencia final"} priority className="object-contain"/><span className="absolute bottom-5 left-1/2 -translate-x-1/2 rounded-full border border-white/15 bg-black/65 px-4 py-2 text-xs font-black uppercase tracking-[.15em] text-white backdrop-blur-lg">{photo.type === "START" ? "Inicio" : "Meta cumplida"}</span></article>)}</div> : <div className="grid h-full place-items-center text-center"><div><ShieldCheck className="mx-auto h-12 w-12 text-slate-600"/><p className="mt-3 font-bold text-slate-400">Sin evidencia disponible</p></div></div>}
         {activeIndex > 0 && <button type="button" onClick={() => goTo(activeIndex - 1)} aria-label="Fotografía anterior" className="absolute left-3 top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 place-items-center rounded-full bg-black/55 text-white backdrop-blur sm:grid"><ChevronLeft/></button>}
         {activeIndex < photos.length - 1 && <button type="button" onClick={() => goTo(activeIndex + 1)} aria-label="Fotografía siguiente" className="absolute right-3 top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 place-items-center rounded-full bg-black/55 text-white backdrop-blur sm:grid"><ChevronRight/></button>}
       </div>

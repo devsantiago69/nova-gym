@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createEvidenceViewToken, evidenceTokenMatches, EVIDENCE_VIEW_SECONDS } from "./evidence-access";
+import { createEvidenceViewToken, evidenceTokenMatches, EVIDENCE_VIEW_SECONDS, normalizeEvidenceViewSeconds } from "./evidence-access";
 
 describe("private challenge evidence access", () => {
   it("genera tokens aleatorios y valida únicamente el token original", () => {
@@ -12,5 +12,11 @@ describe("private challenge evidence access", () => {
 
   it("mantiene la ventana privada en diez segundos", () => {
     expect(EVIDENCE_VIEW_SECONDS).toBe(10);
+  });
+
+  it("acepta duraciones configurables y protege valores inválidos", () => {
+    expect(normalizeEvidenceViewSeconds(5)).toBe(5);
+    expect(normalizeEvidenceViewSeconds(20)).toBe(20);
+    expect(normalizeEvidenceViewSeconds(99)).toBe(10);
   });
 });

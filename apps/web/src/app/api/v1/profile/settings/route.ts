@@ -14,8 +14,8 @@ export async function PATCH(request: Request) {
   try {
     const updated = await prisma.$transaction(async (tx) => {
       await tx.user.update({ where: { id: session.user.id }, data: { username: parsed.data.username, email: parsed.data.email, whatsappNumber: parsed.data.whatsappNumber } });
-      const profile = await tx.userProfile.update({ where: { userId: session.user.id }, data: { firstName: parsed.data.firstName, lastName: parsed.data.lastName, bio: parsed.data.bio, locale: parsed.data.locale, localeAuto: parsed.data.localeAuto, timezone: parsed.data.timezone, showActiveChallenges: parsed.data.showActiveChallenges } });
-      await tx.auditLog.create({ data: { actorId: session.user.id, action: "PROFILE_SETTINGS_UPDATED", entityType: "User", entityId: session.user.id, correlationId: crypto.randomUUID(), newValues: { username: parsed.data.username, locale: parsed.data.locale, localeAuto: parsed.data.localeAuto, timezone: parsed.data.timezone, showActiveChallenges: parsed.data.showActiveChallenges } } });
+      const profile = await tx.userProfile.update({ where: { userId: session.user.id }, data: { firstName: parsed.data.firstName, lastName: parsed.data.lastName, bio: parsed.data.bio, locale: parsed.data.locale, localeAuto: parsed.data.localeAuto, storyDurationSeconds: parsed.data.storyDurationSeconds, timezone: parsed.data.timezone, showActiveChallenges: parsed.data.showActiveChallenges } });
+      await tx.auditLog.create({ data: { actorId: session.user.id, action: "PROFILE_SETTINGS_UPDATED", entityType: "User", entityId: session.user.id, correlationId: crypto.randomUUID(), newValues: { username: parsed.data.username, locale: parsed.data.locale, localeAuto: parsed.data.localeAuto, storyDurationSeconds: parsed.data.storyDurationSeconds, timezone: parsed.data.timezone, showActiveChallenges: parsed.data.showActiveChallenges } } });
       return profile;
     });
     const resolvedLocale = resolveAppLocale(updated);

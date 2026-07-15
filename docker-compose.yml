@@ -11,10 +11,12 @@ services:
     healthcheck: { test: ["CMD", "redis-cli", "ping"], interval: 5s, timeout: 3s, retries: 10 }
   minio:
     image: minio/minio:latest
+    restart: unless-stopped
     command: server /data --console-address :9001
     environment: { MINIO_ROOT_USER: "${S3_ACCESS_KEY_ID:-minio}", MINIO_ROOT_PASSWORD: "${S3_SECRET_ACCESS_KEY:-change-me-now}" }
     ports: ["127.0.0.1:9000:9000", "127.0.0.1:9001:9001"]
     volumes: [minio_data:/data]
+    healthcheck: { test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/minio/health/live"], interval: 10s, timeout: 5s, retries: 5 }
   web:
     build: { context: ., args: { TARGET: web } }
     env_file: .env

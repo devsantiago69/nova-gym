@@ -9,6 +9,7 @@ export const profileSettingsSchema = z.object({
   bio: z.preprocess((value) => value === "" ? null : value, z.string().trim().max(280).nullable()),
   locale: z.enum(["es", "en"]),
   localeAuto: z.boolean(),
+  storyDurationSeconds: z.number().int().refine((value) => [5, 10, 15, 20].includes(value), "Selecciona una duración válida"),
   timezone: z.enum(["America/Bogota", "America/Mexico_City", "America/Lima", "America/Santiago", "America/Argentina/Buenos_Aires", "America/New_York", "Europe/Madrid"]),
   showActiveChallenges: z.boolean(),
 });

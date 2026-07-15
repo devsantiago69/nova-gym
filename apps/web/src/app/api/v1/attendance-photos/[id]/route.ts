@@ -17,6 +17,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const view = await prisma.challengeEvidenceView.findUnique({ where: { attendanceId_viewerId: { attendanceId: photo.attendanceId, viewerId: session.user.id } } });
     if (!view || view.challengeId !== challengeId || view.decidedAt || view.expiresAt.getTime() < Date.now() || !evidenceTokenMatches(viewToken, view.tokenHash)) return fail("PRIVATE_VIEW_EXPIRED", "La vista privada de esta fotografía terminó", 410);
   }
-  const object = await getPrivateObject(photo.objectKey);
-  return new Response(Buffer.from(object.body), { headers: { "content-type": object.contentType, "cache-control": "private, no-store, max-age=0", pragma: "no-cache", expires: "0", "content-disposition": "inline", "x-content-type-options": "nosniff" } });
+  try {
+    const object = await getPrivateObject(photo.objectKey);
+    return new Response(Buffer.from(object.body), { headers: { "content-type": object.contentType, "cache-control": "private, no-store, max-age=0", pragma: "no-cache", expires: "0", "content-disposition": "inline", "x-content-type-options": "nosniff" } });
+  } catch (error) {
+    const name = error instanceof Error ? error.name : "UnknownStorageError";
+    console.error("attendance.photo.read.failed", { photoId: photo.id, attendanceId: photo.attendanceId, name });
+    if (["NoSuchKey", "NotFound"].includes(name)) return fail("PHOTO_OBJECT_MISSING", "El archivo de esta evidencia ya no está disponible", 404);
+    return fail("STORAGE_UNAVAILABLE", "El almacenamiento privado está temporalmente fuera de servicio", 503);
+  }
 }
