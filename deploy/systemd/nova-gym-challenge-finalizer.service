@@ -1,0 +1,13 @@
+[Unit]
+Description=Nova Gym expired challenge finalizer
+After=network.target postgresql.service
+
+[Service]
+Type=oneshot
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/html/nova-gym
+EnvironmentFile=/var/www/html/nova-gym/.env
+ExecStart=/usr/bin/node /var/www/html/nova-gym/apps/worker/node_modules/tsx/dist/cli.mjs /var/www/html/nova-gym/apps/worker/src/finalize-challenges.ts
+NoNewPrivileges=true
+PrivateTmp=true

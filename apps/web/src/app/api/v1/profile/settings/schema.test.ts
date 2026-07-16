@@ -10,6 +10,7 @@ const valid = {
   bio: "Constancia diaria",
   locale: "es",
   localeAuto: false,
+  fontFamily: "nova",
   storyDurationSeconds: 10,
   timezone: "America/Bogota",
   showActiveChallenges: true,
@@ -39,7 +40,23 @@ describe("profileSettingsSchema", () => {
       }).success,
     ).toBe(false));
   it("limita la duración de historias a opciones seguras", () => {
-    expect(profileSettingsSchema.safeParse({ ...valid, storyDurationSeconds: 20 }).success).toBe(true);
-    expect(profileSettingsSchema.safeParse({ ...valid, storyDurationSeconds: 60 }).success).toBe(false);
+    expect(
+      profileSettingsSchema.safeParse({ ...valid, storyDurationSeconds: 20 })
+        .success,
+    ).toBe(true);
+    expect(
+      profileSettingsSchema.safeParse({ ...valid, storyDurationSeconds: 60 })
+        .success,
+    ).toBe(false);
+  });
+  it("solo permite tipografías disponibles en la aplicación", () => {
+    for (const fontFamily of ["nova", "modern", "rounded", "editorial"])
+      expect(
+        profileSettingsSchema.safeParse({ ...valid, fontFamily }).success,
+      ).toBe(true);
+    expect(
+      profileSettingsSchema.safeParse({ ...valid, fontFamily: "external-url" })
+        .success,
+    ).toBe(false);
   });
 });

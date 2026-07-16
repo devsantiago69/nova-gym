@@ -1,0 +1,24 @@
+"use client";
+
+import Link from "next/link";
+import { useMemo, useState } from "react";
+import { Award, Camera, Clock3, Flame, Search, ShieldCheck, Sparkles, Target, UsersRound } from "lucide-react";
+
+type Template = { id: string; name: string; description: string; category: string; difficulty: string; featured: boolean; official: boolean; usageCount: number; version: number; duration: number; target: number; points: number; evidence: string; modalities: string[] };
+const difficultyLabel: Record<string, string> = { BEGINNER: "Inicial", INTERMEDIATE: "Intermedio", ADVANCED: "Avanzado" };
+
+export function TemplateCatalog({ templates }: { templates: Template[] }) {
+  const [search, setSearch] = useState(""); const [difficulty, setDifficulty] = useState("ALL");
+  const visible = useMemo(() => templates.filter((item) => (difficulty === "ALL" || item.difficulty === difficulty) && `${item.name} ${item.description} ${item.category}`.toLowerCase().includes(search.trim().toLowerCase())), [templates, search, difficulty]);
+  return <>
+    <div className="sticky top-[68px] z-20 mt-7 grid gap-3 rounded-[24px] border border-slate-800 bg-slate-950/90 p-3 backdrop-blur-xl sm:grid-cols-[1fr_auto]">
+      <label className="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-900 px-4 focus-within:border-lime-400"><Search size={18} className="text-slate-500"/><input value={search} onChange={(event)=>setSearch(event.target.value)} placeholder="Buscar por objetivo, categoría o nombre" className="w-full bg-transparent py-3 outline-none"/></label>
+      <div className="flex gap-2 overflow-x-auto">{[["ALL","Todas"],["BEGINNER","Inicial"],["INTERMEDIATE","Intermedio"],["ADVANCED","Avanzado"]].map(([value,label])=><button type="button" key={value} onClick={()=>setDifficulty(value!)} className={`shrink-0 rounded-2xl px-4 py-3 text-xs font-black ${difficulty===value?"bg-lime-400 text-slate-950":"bg-slate-900 text-slate-300"}`}>{label}</button>)}</div>
+    </div>
+    <div className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">{visible.map((item)=><article key={item.id} className="group overflow-hidden rounded-[30px] border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900 to-orange-950/25 shadow-[0_22px_70px_rgba(0,0,0,.22)] transition hover:-translate-y-1 hover:border-orange-400/40">
+      <div className="relative min-h-44 overflow-hidden bg-[radial-gradient(circle_at_20%_20%,rgba(163,230,53,.23),transparent_30%),radial-gradient(circle_at_80%_20%,rgba(34,211,238,.2),transparent_34%),linear-gradient(135deg,#121b2d,#090d16)] p-6"><div className="flex items-start justify-between"><span className="grid h-14 w-14 place-items-center rounded-2xl bg-orange-400 text-slate-950 shadow-xl"><Flame size={28}/></span><div className="flex gap-2">{item.featured&&<span className="rounded-full bg-lime-400 px-3 py-1 text-[10px] font-black text-slate-950"><Sparkles size={11} className="mr-1 inline"/>DESTACADA</span>}{item.official&&<span className="rounded-full border border-white/15 bg-slate-950/65 px-3 py-1 text-[10px] font-black"><ShieldCheck size={11} className="mr-1 inline"/>OFICIAL</span>}</div></div><p className="mt-7 text-xs font-black uppercase tracking-wider text-cyan-300">{item.category}</p><h2 className="mt-1 text-2xl font-black">{item.name}</h2></div>
+      <div className="p-6"><p className="min-h-16 text-sm muted">{item.description}</p><div className="mt-5 grid grid-cols-3 gap-2 text-center text-[11px]"><span className="rounded-xl bg-slate-950 p-3"><Clock3 size={16} className="mx-auto mb-1 text-cyan-300"/>{item.duration} días</span><span className="rounded-xl bg-slate-950 p-3"><Target size={16} className="mx-auto mb-1 text-lime-300"/>Meta {item.target}</span><span className="rounded-xl bg-slate-950 p-3"><Award size={16} className="mx-auto mb-1 text-orange-300"/>+{item.points} pts</span></div><div className="mt-4 flex flex-wrap gap-2 text-[10px]"><span className="rounded-full bg-cyan-400/10 px-3 py-1.5 text-cyan-300"><Camera size={12} className="mr-1 inline"/>{item.evidence.replaceAll("_"," ")}</span><span className="rounded-full bg-violet-400/10 px-3 py-1.5 text-violet-300"><UsersRound size={12} className="mr-1 inline"/>{item.modalities.length} modalidades</span><span className="rounded-full bg-slate-800 px-3 py-1.5">{difficultyLabel[item.difficulty]??item.difficulty}</span></div><div className="mt-5 flex items-center justify-between text-xs muted"><span>{item.usageCount} usos</span><span>Versión {item.version}</span></div><Link href={`/retos?template=${item.id}#crear-reto`} className="btn mt-5 w-full">Usar plantilla</Link></div>
+    </article>)}</div>
+    {visible.length===0&&<div className="mt-6 rounded-[28px] border border-dashed border-slate-700 p-12 text-center"><Search className="mx-auto text-slate-600"/><h2 className="mt-3 text-xl font-black">No encontramos esa energía</h2><p className="mt-1 text-sm muted">Prueba otro nombre o nivel.</p></div>}
+  </>;
+}

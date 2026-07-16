@@ -1,0 +1,10 @@
+import Link from "next/link";
+import { ArrowLeft, Sparkles } from "lucide-react";
+import { prisma } from "@gymchallenge/database";
+import { TemplateCatalog } from "@/components/challenges/template-catalog";
+
+export default async function Page() {
+  const rows = await prisma.challengeTemplate.findMany({ where: { status: "ACTIVE", versions: { some: { publishedAt: { not: null } } } }, include: { category: true, versions: { where: { publishedAt: { not: null } }, orderBy: { version: "desc" }, take: 1 } }, orderBy: [{ featured: "desc" }, { sortOrder: "asc" }, { name: "asc" }] });
+  const templates = rows.flatMap((row)=>row.versions[0]?[{ id:row.id,name:row.name,description:row.shortDescription,category:row.category.name,difficulty:row.difficulty,featured:row.featured,official:row.official,usageCount:row.usageCount,version:row.versions[0].version,duration:row.versions[0].defaultDurationDays,target:row.versions[0].defaultTargetValue,points:row.versions[0].pointsPerCompletion,evidence:row.versions[0].evidenceType,modalities:row.versions[0].allowedModalities }]:[]);
+  return <section className="pb-10"><Link href="/retos" className="inline-flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-white"><ArrowLeft size={17}/>Volver a mis retos</Link><div className="mt-5 overflow-hidden rounded-[32px] border border-lime-400/15 bg-[radial-gradient(circle_at_10%_10%,rgba(163,230,53,.16),transparent_28%),radial-gradient(circle_at_85%_20%,rgba(34,211,238,.12),transparent_30%),linear-gradient(135deg,#111a2b,#080c14)] p-7 sm:p-10"><span className="inline-flex items-center gap-2 rounded-full bg-lime-400/10 px-3 py-1.5 text-xs font-black text-lime-300"><Sparkles size={14}/>RETOS OFICIALES</span><h1 className="mt-4 max-w-3xl text-4xl font-black sm:text-5xl">Elige una meta que se sienta tuya.</h1><p className="mt-3 max-w-2xl muted">Cada plantilla tiene reglas verificables y una versión protegida. Cuando comienzas, su configuración queda congelada para siempre.</p></div><TemplateCatalog templates={templates}/></section>;
+}

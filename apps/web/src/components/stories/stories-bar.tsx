@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CheckCircle2,
@@ -24,6 +25,7 @@ export type StoryItem = {
   challengeName?: string;
   ownerName: string;
   username: string;
+  avatarUrl?: string;
   isOwn: boolean;
   photos: Array<{ id: string; type: string }>;
   durationMinutes: number | null;
@@ -138,14 +140,36 @@ export function StoriesBar({
 
   async function togglePause() {
     if (!active || !item) return;
-    if (item.isOwn) { setPaused((value) => !value); return; }
+    if (item.isOwn) {
+      setPaused((value) => !value);
+      return;
+    }
     if (!active.token || !item.challengeId) return;
     const action = paused ? "resume" : "pause";
-    const response = await fetch(`/api/v1/challenges/${item.challengeId}/evidence/${item.attendanceId}/view-session`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ action, viewToken: active.token, remainingMs }) });
-    const json = await response.json() as { data?: { expiresAt: string; remainingMs: number }; message: string; errors?: Array<{ message: string }> };
-    if (!response.ok || !json.data) { setMessage(json.errors?.[0]?.message ?? json.message); close(); return; }
+    const response = await fetch(
+      `/api/v1/challenges/${item.challengeId}/evidence/${item.attendanceId}/view-session`,
+      {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action, viewToken: active.token, remainingMs }),
+      },
+    );
+    const json = (await response.json()) as {
+      data?: { expiresAt: string; remainingMs: number };
+      message: string;
+      errors?: Array<{ message: string }>;
+    };
+    if (!response.ok || !json.data) {
+      setMessage(json.errors?.[0]?.message ?? json.message);
+      close();
+      return;
+    }
     setRemainingMs(json.data.remainingMs);
-    setActive((current) => current ? { ...current, expiresAt: new Date(json.data!.expiresAt).getTime() } : current);
+    setActive((current) =>
+      current
+        ? { ...current, expiresAt: new Date(json.data!.expiresAt).getTime() }
+        : current,
+    );
     setPaused(action === "pause");
   }
 
@@ -232,7 +256,16 @@ export function StoriesBar({
                 <span className="text-xl font-black">
                   {story.ownerName.charAt(0).toUpperCase()}
                 </span>
-                {!story.isOwn && (
+                {story.avatarUrl ? (
+                  <Image
+                    src={story.avatarUrl}
+                    alt={`Foto de ${story.ownerName}`}
+                    fill
+                    unoptimized
+                    className="object-cover"
+                  />
+                ) : null}
+                {!story.isOwn && !story.avatarUrl && (
                   <LockKeyhole size={17} className="absolute text-white/55" />
                 )}
                 <span className="absolute bottom-0 right-0 rounded-full bg-slate-950 px-1.5 py-1 text-[8px] font-black text-lime-300">
@@ -287,8 +320,17 @@ export function StoriesBar({
             </div>
             <div className="absolute inset-x-0 top-2 z-30 flex items-center justify-between gap-3 bg-gradient-to-b from-black/90 to-transparent px-4 pb-10 pt-4">
               <div className="flex min-w-0 items-center gap-3">
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-orange-400 to-lime-400 font-black text-slate-950">
+                <span className="relative grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-orange-400 to-lime-400 font-black text-slate-950">
                   {item.ownerName.charAt(0).toUpperCase()}
+                  {item.avatarUrl ? (
+                    <Image
+                      src={item.avatarUrl}
+                      alt={`Foto de ${item.ownerName}`}
+                      fill
+                      unoptimized
+                      className="object-cover"
+                    />
+                  ) : null}
                 </span>
                 <div className="min-w-0">
                   <strong className="block truncate">
@@ -301,16 +343,14 @@ export function StoriesBar({
                 </div>
               </div>
               <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => void togglePause()}
-                    aria-label={
-                      paused ? "Reanudar historia" : "Pausar historia"
-                    }
-                    className="rounded-full bg-black/45 p-2"
-                  >
-                    {paused ? <Play size={20} /> : <Pause size={20} />}
-                  </button>
+                <button
+                  type="button"
+                  onClick={() => void togglePause()}
+                  aria-label={paused ? "Reanudar historia" : "Pausar historia"}
+                  className="rounded-full bg-black/45 p-2"
+                >
+                  {paused ? <Play size={20} /> : <Pause size={20} />}
+                </button>
                 <button
                   type="button"
                   onClick={close}

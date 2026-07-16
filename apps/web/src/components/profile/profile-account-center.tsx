@@ -8,6 +8,7 @@ import {
   Eye,
   EyeOff,
   Globe2,
+  LetterText,
   KeyRound,
   Languages,
   LockKeyhole,
@@ -32,6 +33,7 @@ type Settings = {
   bio: string;
   locale: Locale;
   localeAuto: boolean;
+  fontFamily: "nova" | "modern" | "rounded" | "editorial";
   storyDurationSeconds: number;
   timezone: string;
   showActiveChallenges: boolean;
@@ -62,7 +64,7 @@ const inputClass =
 
 export function ProfileAccountCenter({ initial }: { initial: Settings }) {
   const [tab, setTab] = useState<
-    "identity" | "language" | "stories" | "security"
+    "identity" | "appearance" | "language" | "stories" | "security"
   >("identity");
   const [settings, setSettings] = useState(initial);
   const [saving, setSaving] = useState(false);
@@ -148,6 +150,7 @@ export function ProfileAccountCenter({ initial }: { initial: Settings }) {
 
   const tabs = [
     ["identity", UserRound, "Mi identidad", "Perfil social"],
+    ["appearance", LetterText, "Apariencia", "Tipografía del app"],
     ["language", Languages, "Idioma y región", "Tu experiencia"],
     ["stories", Play, "Mis historias", "Duración y reproducción"],
     ["security", KeyRound, "Seguridad", "Contraseña"],
@@ -317,6 +320,110 @@ export function ProfileAccountCenter({ initial }: { initial: Settings }) {
                 {saving ? "Guardando…" : "Guardar mi perfil"}
               </button>
             </form>
+          )}
+
+          {tab === "appearance" && (
+            <div className="space-y-7">
+              <div>
+                <p className="text-xs font-black text-violet-300">
+                  ESTILO PERSONAL
+                </p>
+                <h3 className="mt-1 text-2xl font-black">
+                  Elige la voz visual de tu app
+                </h3>
+                <p className="mt-1 text-sm muted">
+                  La tipografía se aplicará a toda tu experiencia privada en
+                  Nova Gym.
+                </p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {(
+                  [
+                    [
+                      "nova",
+                      "Nova",
+                      "Equilibrada y deportiva",
+                      "Arial, Helvetica, sans-serif",
+                    ],
+                    [
+                      "modern",
+                      "Modern",
+                      "Limpia y tecnológica",
+                      "Inter, ui-sans-serif, system-ui, sans-serif",
+                    ],
+                    [
+                      "rounded",
+                      "Pulse",
+                      "Amigable y social",
+                      "ui-rounded, 'Arial Rounded MT Bold', Arial, sans-serif",
+                    ],
+                    [
+                      "editorial",
+                      "Editorial",
+                      "Elegante y expresiva",
+                      "Georgia, 'Times New Roman', serif",
+                    ],
+                  ] as const
+                ).map(([value, name, detail, stack]) => {
+                  const selected = settings.fontFamily === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => update("fontFamily", value)}
+                      className={`relative min-h-36 rounded-[24px] border p-5 text-left transition ${selected ? "border-lime-300 bg-lime-300/10 shadow-[0_0_30px_rgba(163,230,53,.08)]" : "border-slate-700 bg-slate-950/55 hover:border-violet-300"}`}
+                    >
+                      <span
+                        style={{ fontFamily: stack }}
+                        className="block text-4xl font-black"
+                      >
+                        Aa
+                      </span>
+                      <strong className="mt-4 block">{name}</strong>
+                      <small className="text-slate-500">{detail}</small>
+                      {selected ? (
+                        <span className="absolute right-4 top-4 grid h-7 w-7 place-items-center rounded-full bg-lime-300 text-slate-950">
+                          <Check size={15} />
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="rounded-[24px] border border-violet-400/20 bg-gradient-to-r from-violet-400/10 to-cyan-400/5 p-5">
+                <p className="text-[10px] font-black tracking-[.15em] text-violet-300">
+                  VISTA PREVIA
+                </p>
+                <p
+                  style={{
+                    fontFamily:
+                      settings.fontFamily === "editorial"
+                        ? "Georgia, serif"
+                        : settings.fontFamily === "rounded"
+                          ? "ui-rounded, 'Arial Rounded MT Bold', Arial, sans-serif"
+                          : settings.fontFamily === "modern"
+                            ? "Inter, ui-sans-serif, system-ui, sans-serif"
+                            : "Arial, sans-serif",
+                  }}
+                  className="mt-3 text-2xl font-black"
+                >
+                  Cada entrenamiento cuenta.
+                </p>
+                <p className="mt-1 text-sm muted">
+                  Tu constancia, tus retos y tu comunidad con una identidad que
+                  se siente tuya.
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => void saveSettings()}
+                className="btn w-full gap-2 py-4 sm:w-auto sm:px-7"
+              >
+                <Save size={18} />
+                {saving ? "Aplicando…" : "Aplicar tipografía"}
+              </button>
+            </div>
           )}
 
           {tab === "language" && (

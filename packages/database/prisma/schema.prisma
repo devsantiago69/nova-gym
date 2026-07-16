@@ -68,6 +68,7 @@ enum ChallengeType {
   FIRST_TO_TARGET
   REACH_TARGET
   STREAK
+  ACCUMULATED_AMOUNT
 }
 
 enum ChallengeStatus {
@@ -84,12 +85,78 @@ enum ChallengeResult {
   WIN
   LOSS
   DRAW
+  COMPLETED
+  FAILED
   CANCELED
 }
 
 enum ChallengeReviewVerdict {
   CONFIRMED
   REJECTED
+}
+
+enum ChallengeTemplateStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum ChallengeTemplateDifficulty {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum ChallengeModality {
+  SOLO
+  HEAD_TO_HEAD
+  GROUP
+}
+
+enum ChallengeEvidenceType {
+  NONE
+  CHECK_IN
+  ONE_PHOTO
+  TWO_PHOTOS
+  TEXT
+  CHECKLIST
+  NUMERIC_VALUE
+  PHOTO_AND_VALUE
+}
+
+enum ChallengeTemplateFieldPolicy {
+  LOCKED
+  EDITABLE
+  EDITABLE_WITH_LIMITS
+}
+
+enum ChallengeCompletionStatus {
+  DRAFT
+  IN_PROGRESS
+  SUBMITTED
+  VALID
+  INVALID
+  CANCELED
+}
+
+enum ChallengeValidationMethod {
+  AUTOMATIC
+  ADMIN_REVIEW
+  SELF_REPORTED
+}
+
+enum ChallengeCompletionEvidenceType {
+  START_PHOTO
+  END_PHOTO
+  SINGLE_PHOTO
+  ATTACHMENT
+}
+
+enum EvidenceProcessingStatus {
+  PENDING
+  READY
+  FAILED
 }
 
 enum NotificationType {
@@ -141,6 +208,11 @@ model User {
   challengeEvidenceViews     ChallengeEvidenceView[]     @relation("ChallengeEvidenceViewer")
   notifications              Notification[]              @relation("NotificationRecipient")
   notificationsTriggered     Notification[]              @relation("NotificationActor")
+  challengeTemplateVersions  ChallengeTemplateVersion[]  @relation("ChallengeTemplateVersionCreator")
+  challengeCompletions       ChallengeCompletion[]
+  challengeResults           ChallengeResultRecord[]
+  personalChallengeTemplates UserChallengeTemplate[]
+  challengeDrafts             ChallengeDraft[]
 
   @@index([status])
   @@map("users")
@@ -231,14 +303,111 @@ model ChallengeCategory {
   createdAt           DateTime                @default(now()) @map("created_at")
   updatedAt           DateTime                @updatedAt @map("updated_at")
   challenges          Challenge[]
+  templates           ChallengeTemplate[]
+  personalTemplates   UserChallengeTemplate[]
 
   @@map("challenge_categories")
+}
+
+model ChallengeTemplate {
+  id               String                      @id @default(uuid()) @db.Uuid
+  categoryId       String                      @map("category_id") @db.Uuid
+  minimumPlanId    String?                     @map("minimum_plan_id") @db.Uuid
+  name             String                      @db.VarChar(160)
+  slug             String                      @unique @db.VarChar(160)
+  shortDescription String                      @map("short_description") @db.VarChar(500)
+  coverImageKey    String?                     @map("cover_image_key") @db.VarChar(500)
+  icon             String                      @default("flame") @db.VarChar(50)
+  tags             String[]                    @default([])
+  difficulty       ChallengeTemplateDifficulty @default(BEGINNER)
+  status           ChallengeTemplateStatus     @default(DRAFT)
+  sortOrder        Int                         @default(0) @map("sort_order")
+  featured         Boolean                     @default(false)
+  official         Boolean                     @default(true)
+  usageCount       Int                         @default(0) @map("usage_count")
+  createdAt        DateTime                    @default(now()) @map("created_at")
+  updatedAt        DateTime                    @updatedAt @map("updated_at")
+  category         ChallengeCategory           @relation(fields: [categoryId], references: [id])
+  minimumPlan      Plan?                       @relation(fields: [minimumPlanId], references: [id], onDelete: SetNull)
+  versions         ChallengeTemplateVersion[]
+  challenges       Challenge[]
+  ruleSnapshots    ChallengeRuleSnapshot[]
+
+  @@index([status, featured, sortOrder])
+  @@index([categoryId, status])
+  @@map("challenge_templates")
+}
+
+model ChallengeTemplateVersion {
+  id                    String                         @id @default(uuid()) @db.Uuid
+  templateId            String                         @map("template_id") @db.Uuid
+  createdById           String?                        @map("created_by_id") @db.Uuid
+  version               Int
+  fullDescription       String                         @map("full_description") @db.Text
+  challengeType         ChallengeType                  @map("challenge_type")
+  allowedModalities     ChallengeModality[]             @map("allowed_modalities")
+  defaultDurationDays   Int                            @map("default_duration_days")
+  minimumDurationDays   Int                            @map("minimum_duration_days")
+  maximumDurationDays   Int                            @map("maximum_duration_days")
+  validWeekdays         Int[]                          @default([1, 2, 3, 4, 5, 6, 7]) @map("valid_weekdays")
+  defaultTargetValue    Int                            @map("default_target_value")
+  targetUnit            String                         @map("target_unit") @db.VarChar(50)
+  evidenceType          ChallengeEvidenceType          @map("evidence_type")
+  requiredPhotoCount    Int                            @default(0) @map("required_photo_count")
+  pointsPerCompletion   Int                            @default(1) @map("points_per_completion")
+  completionBonus       Int                            @default(0) @map("completion_bonus")
+  winnerBonus           Int                            @default(0) @map("winner_bonus")
+  maxDailyCompletions   Int                            @default(1) @map("max_daily_completions")
+  scoringRules          Json                           @map("scoring_rules")
+  winningRule           Json                           @map("winning_rule")
+  tieRule               Json                           @map("tie_rule")
+  instructions          String                         @db.Text
+  recommendations       String?                        @db.Text
+  terms                 String                         @db.Text
+  publishedAt           DateTime?                      @map("published_at")
+  createdAt             DateTime                       @default(now()) @map("created_at")
+  template              ChallengeTemplate              @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  createdBy             User?                          @relation("ChallengeTemplateVersionCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  fields                ChallengeTemplateField[]
+  challenges            Challenge[]
+  ruleSnapshots         ChallengeRuleSnapshot[]
+
+  @@unique([templateId, version])
+  @@index([templateId, publishedAt])
+  @@map("challenge_template_versions")
+}
+
+model ChallengeTemplateField {
+  id                String                       @id @default(uuid()) @db.Uuid
+  templateVersionId String                       @map("template_version_id") @db.Uuid
+  fieldKey          String                       @map("field_key") @db.VarChar(80)
+  policy            ChallengeTemplateFieldPolicy
+  minimumValue      Decimal?                     @map("minimum_value") @db.Decimal(12, 2)
+  maximumValue      Decimal?                     @map("maximum_value") @db.Decimal(12, 2)
+  allowedValues     Json?                        @map("allowed_values")
+  createdAt         DateTime                     @default(now()) @map("created_at")
+  templateVersion   ChallengeTemplateVersion     @relation(fields: [templateVersionId], references: [id], onDelete: Cascade)
+
+  @@unique([templateVersionId, fieldKey])
+  @@map("challenge_template_fields")
 }
 
 model Challenge {
   id                String                      @id @default(uuid()) @db.Uuid
   categoryId        String                      @map("category_id") @db.Uuid
+  templateId        String?                     @map("template_id") @db.Uuid
+  templateVersionId String?                     @map("template_version_id") @db.Uuid
   creatorId         String                      @map("creator_id") @db.Uuid
+  name              String                      @default("") @db.VarChar(160)
+  description       String                      @default("") @db.VarChar(1000)
+  modality          ChallengeModality           @default(HEAD_TO_HEAD)
+  durationDays      Int                         @default(1) @map("duration_days")
+  timezone          String                      @default("America/Bogota") @db.VarChar(80)
+  targetValue       Int                         @default(1) @map("target_value")
+  targetUnit        String                      @default("attendances") @map("target_unit") @db.VarChar(50)
+  evidenceType      ChallengeEvidenceType       @default(TWO_PHOTOS) @map("evidence_type")
+  pointsPerCompletion Int                       @default(1) @map("points_per_completion")
+  maxDailyCompletions Int                       @default(1) @map("max_daily_completions")
   status            ChallengeStatus             @default(PENDING)
   message           String?                     @db.VarChar(300)
   startsAt          DateTime                    @map("starts_at")
@@ -247,14 +416,77 @@ model Challenge {
   createdAt         DateTime                    @default(now()) @map("created_at")
   updatedAt         DateTime                    @updatedAt @map("updated_at")
   category          ChallengeCategory           @relation(fields: [categoryId], references: [id])
+  template          ChallengeTemplate?           @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  templateVersion   ChallengeTemplateVersion?    @relation(fields: [templateVersionId], references: [id], onDelete: Restrict)
   creator           User                        @relation("ChallengeCreator", fields: [creatorId], references: [id])
   participants      ChallengeParticipant[]
   scoreEvents       ChallengeScoreEvent[]
   attendanceReviews ChallengeAttendanceReview[]
   evidenceViews     ChallengeEvidenceView[]
+  ruleSnapshot      ChallengeRuleSnapshot?
+  completions       ChallengeCompletion[]
+  checklistItems    ChallengeChecklistItem[]
+  personalTemplates UserChallengeTemplate[]
+  results           ChallengeResultRecord[]
 
   @@index([status, startsAt, endsAt])
+  @@index([templateId])
+  @@index([templateVersionId])
   @@map("challenges")
+}
+
+model UserChallengeTemplate {
+  id                String            @id @default(uuid()) @db.Uuid
+  ownerId           String            @map("owner_id") @db.Uuid
+  categoryId        String            @map("category_id") @db.Uuid
+  sourceChallengeId String?           @map("source_challenge_id") @db.Uuid
+  name              String            @db.VarChar(160)
+  description       String            @db.VarChar(1000)
+  configuration     Json
+  usageCount        Int               @default(0) @map("usage_count")
+  archivedAt        DateTime?         @map("archived_at")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+  owner             User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  category          ChallengeCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  sourceChallenge   Challenge?        @relation(fields: [sourceChallengeId], references: [id], onDelete: SetNull)
+
+  @@index([ownerId, archivedAt, createdAt])
+  @@index([categoryId])
+  @@map("user_challenge_templates")
+}
+
+model ChallengeDraft {
+  id          String   @id @default(uuid()) @db.Uuid
+  ownerId     String   @map("owner_id") @db.Uuid
+  title       String   @default("Nuevo reto") @db.VarChar(160)
+  currentStep Int      @default(1) @map("current_step")
+  data        Json
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  owner       User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId, updatedAt])
+  @@index([expiresAt])
+  @@map("challenge_drafts")
+}
+
+model ChallengeRuleSnapshot {
+  id                String                    @id @default(uuid()) @db.Uuid
+  challengeId       String                    @unique @map("challenge_id") @db.Uuid
+  templateId        String?                   @map("template_id") @db.Uuid
+  templateVersionId String?                   @map("template_version_id") @db.Uuid
+  templateVersion   Int?                      @map("template_version")
+  rules             Json
+  checksum          String                    @db.Char(64)
+  createdAt         DateTime                  @default(now()) @map("created_at")
+  challenge         Challenge                 @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  template          ChallengeTemplate?         @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  version           ChallengeTemplateVersion?  @relation(fields: [templateVersionId], references: [id], onDelete: Restrict)
+
+  @@index([templateId, templateVersionId])
+  @@map("challenge_rule_snapshots")
 }
 
 model ChallengeParticipant {
@@ -267,6 +499,8 @@ model ChallengeParticipant {
   createdAt   DateTime        @default(now()) @map("created_at")
   challenge   Challenge       @relation(fields: [challengeId], references: [id], onDelete: Cascade)
   user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  completions ChallengeCompletion[]
+  finalResult ChallengeResultRecord?
 
   @@unique([challengeId, userId])
   @@index([userId])
@@ -277,17 +511,124 @@ model ChallengeScoreEvent {
   id             String     @id @default(uuid()) @db.Uuid
   challengeId    String     @map("challenge_id") @db.Uuid
   userId         String     @map("user_id") @db.Uuid
-  attendanceId   String     @map("attendance_id") @db.Uuid
+  attendanceId   String?    @map("attendance_id") @db.Uuid
+  completionId   String?    @map("completion_id") @db.Uuid
   points         Int
   idempotencyKey String     @unique @map("idempotency_key") @db.VarChar(180)
   createdAt      DateTime   @default(now()) @map("created_at")
   challenge      Challenge  @relation(fields: [challengeId], references: [id], onDelete: Cascade)
   user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  attendance     Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  attendance     Attendance? @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  completion     ChallengeCompletion? @relation(fields: [completionId], references: [id], onDelete: Cascade)
 
   @@unique([challengeId, userId, attendanceId])
+  @@unique([challengeId, userId, completionId])
   @@index([challengeId, userId])
   @@map("challenge_score_events")
+}
+
+model ChallengeCompletion {
+  id                 String                      @id @default(uuid()) @db.Uuid
+  challengeId        String                      @map("challenge_id") @db.Uuid
+  participantId      String                      @map("participant_id") @db.Uuid
+  userId             String                      @map("user_id") @db.Uuid
+  logicalDate        DateTime                    @map("logical_date") @db.Date
+  occurredAt         DateTime                    @default(now()) @map("occurred_at")
+  status             ChallengeCompletionStatus   @default(SUBMITTED)
+  numericValue       Decimal?                    @map("numeric_value") @db.Decimal(14, 3)
+  unit               String?                     @db.VarChar(50)
+  textValue          String?                     @map("text_value") @db.VarChar(2000)
+  checklist          Json?
+  calculatedPoints   Int                         @default(0) @map("calculated_points")
+  timezone           String                      @db.VarChar(80)
+  evidenceMethod     ChallengeEvidenceType       @map("evidence_method")
+  validationMethod   ChallengeValidationMethod   @default(AUTOMATIC) @map("validation_method")
+  submittedAt        DateTime?                   @map("submitted_at")
+  validatedAt        DateTime?                   @map("validated_at")
+  invalidatedAt      DateTime?                   @map("invalidated_at")
+  invalidationReason String?                     @map("invalidation_reason") @db.VarChar(500)
+  idempotencyKey     String                      @unique @map("idempotency_key") @db.VarChar(180)
+  createdAt          DateTime                    @default(now()) @map("created_at")
+  updatedAt          DateTime                    @updatedAt @map("updated_at")
+  challenge          Challenge                   @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  participant        ChallengeParticipant        @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  user               User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  evidence           ChallengeCompletionEvidence[]
+  checklistItems     ChallengeCompletionChecklistItem[]
+  scoreEvents        ChallengeScoreEvent[]
+
+  @@index([challengeId, userId, logicalDate])
+  @@index([participantId, status, logicalDate])
+  @@map("challenge_completions")
+}
+
+model ChallengeCompletionEvidence {
+  id               String                            @id @default(uuid()) @db.Uuid
+  completionId     String                            @map("completion_id") @db.Uuid
+  type             ChallengeCompletionEvidenceType
+  objectKey        String                            @map("object_key") @db.VarChar(500)
+  position         Int                               @default(0)
+  uploadedAt       DateTime                          @default(now()) @map("uploaded_at")
+  checksum         String                            @db.Char(64)
+  mimeType         String                            @map("mime_type") @db.VarChar(100)
+  sizeBytes        Int                               @map("size_bytes")
+  processingStatus EvidenceProcessingStatus          @default(READY) @map("processing_status")
+  completion       ChallengeCompletion               @relation(fields: [completionId], references: [id], onDelete: Cascade)
+
+  @@unique([completionId, type, position])
+  @@map("challenge_completion_evidence")
+}
+
+model ChallengeResultRecord {
+  id                String               @id @default(uuid()) @db.Uuid
+  challengeId       String               @map("challenge_id") @db.Uuid
+  participantId     String               @unique @map("participant_id") @db.Uuid
+  userId            String               @map("user_id") @db.Uuid
+  position          Int?
+  result            ChallengeResult
+  completions       Int                  @default(0)
+  points            Int                  @default(0)
+  accumulatedValue  Decimal              @default(0) @map("accumulated_value") @db.Decimal(16, 3)
+  bestStreak        Int                  @default(0) @map("best_streak")
+  targetReached     Boolean              @default(false) @map("target_reached")
+  bonusPoints       Int                  @default(0) @map("bonus_points")
+  calculatedAt      DateTime             @default(now()) @map("calculated_at")
+  algorithmVersion  Int                  @default(1) @map("algorithm_version")
+  rules             Json
+  challenge         Challenge            @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  participant       ChallengeParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  user              User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([challengeId, userId])
+  @@index([challengeId, result])
+  @@index([userId, calculatedAt])
+  @@map("challenge_results")
+}
+
+model ChallengeChecklistItem {
+  id          String       @id @default(uuid()) @db.Uuid
+  challengeId String       @map("challenge_id") @db.Uuid
+  label       String       @db.VarChar(200)
+  required    Boolean      @default(true)
+  points      Int          @default(0)
+  sortOrder   Int          @default(0) @map("sort_order")
+  challenge   Challenge    @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  completions ChallengeCompletionChecklistItem[]
+
+  @@index([challengeId, sortOrder])
+  @@map("challenge_checklist_items")
+}
+
+model ChallengeCompletionChecklistItem {
+  id           String                  @id @default(uuid()) @db.Uuid
+  completionId String                  @map("completion_id") @db.Uuid
+  itemId       String                  @map("item_id") @db.Uuid
+  checked      Boolean                 @default(false)
+  completion   ChallengeCompletion     @relation(fields: [completionId], references: [id], onDelete: Cascade)
+  item         ChallengeChecklistItem  @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([completionId, itemId])
+  @@map("challenge_completion_checklist_items")
 }
 
 model ChallengeAttendanceReview {
@@ -380,6 +721,7 @@ model UserProfile {
   bio                  String?  @db.VarChar(280)
   locale               String   @default("es") @db.VarChar(10)
   localeAuto           Boolean  @default(true) @map("locale_auto")
+  fontFamily           String   @default("nova") @map("font_family") @db.VarChar(30)
   storyDurationSeconds Int      @default(10) @map("story_duration_seconds")
   timezone             String   @default("America/Bogota") @db.VarChar(80)
   currency             String   @default("COP") @db.Char(3)
@@ -435,6 +777,7 @@ model Plan {
   createdAt            DateTime       @default(now()) @map("created_at")
   updatedAt            DateTime       @updatedAt @map("updated_at")
   subscriptions        Subscription[]
+  challengeTemplates   ChallengeTemplate[]
 
   @@map("plans")
 }

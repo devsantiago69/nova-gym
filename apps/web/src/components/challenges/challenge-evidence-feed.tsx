@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -32,6 +33,7 @@ export type ChallengeEvidence = {
   ownerId: string;
   ownerName: string;
   username: string;
+  avatarUrl?: string;
   localDate: string;
   durationMinutes: number | null;
   latitude: number | null;
@@ -111,9 +113,7 @@ export function ChallengeEvidenceFeed({
   const pendingStories = useMemo(
     () =>
       items.filter(
-        (item) =>
-          item.ownerId !== currentUserId &&
-          item.myVerdict === null,
+        (item) => item.ownerId !== currentUserId && item.myVerdict === null,
       ),
     [items, currentUserId],
   );
@@ -240,12 +240,31 @@ export function ChallengeEvidenceFeed({
   async function togglePause() {
     if (!viewer || !activeItem || !privateView || !viewer.viewToken) return;
     const action = paused ? "resume" : "pause";
-    const response = await fetch(`/api/v1/challenges/${activeItem.challengeId}/evidence/${activeItem.attendanceId}/view-session`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ action, viewToken: viewer.viewToken, remainingMs }) });
-    const json = await response.json() as { data?: { expiresAt: string; remainingMs: number }; message: string; errors?: Array<{ message: string }> };
-    if (!response.ok || !json.data) { setMessage(json.errors?.[0]?.message ?? json.message); closeViewer("expired"); return; }
+    const response = await fetch(
+      `/api/v1/challenges/${activeItem.challengeId}/evidence/${activeItem.attendanceId}/view-session`,
+      {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action,
+          viewToken: viewer.viewToken,
+          remainingMs,
+        }),
+      },
+    );
+    const json = (await response.json()) as {
+      data?: { expiresAt: string; remainingMs: number };
+      message: string;
+      errors?: Array<{ message: string }>;
+    };
+    if (!response.ok || !json.data) {
+      setMessage(json.errors?.[0]?.message ?? json.message);
+      closeViewer("expired");
+      return;
+    }
     const expiresAt = new Date(json.data.expiresAt).getTime();
     setRemainingMs(json.data.remainingMs);
-    setViewer((current) => current ? { ...current, expiresAt } : current);
+    setViewer((current) => (current ? { ...current, expiresAt } : current));
     setPaused(action === "pause");
   }
 
@@ -266,7 +285,10 @@ export function ChallengeEvidenceFeed({
       if (event.key === "Escape") closeViewer();
       if (viewer.mode === "story" && event.key === "ArrowRight") moveStory(1);
       if (viewer.mode === "story" && event.key === "ArrowLeft") moveStory(-1);
-      if (event.key === " " && privateView) { event.preventDefault(); void togglePause(); }
+      if (event.key === " " && privateView) {
+        event.preventDefault();
+        void togglePause();
+      }
     };
     window.addEventListener("keydown", keyboard);
     return () => window.removeEventListener("keydown", keyboard);
@@ -348,11 +370,17 @@ export function ChallengeEvidenceFeed({
   }
 
   return (
-    <section className={`${embedded ? "mb-0 border-0 bg-transparent p-0 shadow-none" : "mb-8 overflow-hidden rounded-[28px] border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900 to-violet-950/30 p-5 shadow-[0_22px_80px_rgba(0,0,0,.18)] sm:p-7"}`}>
+    <section
+      className={`${embedded ? "mb-0 border-0 bg-transparent p-0 shadow-none" : "mb-8 overflow-hidden rounded-[28px] border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900 to-violet-950/30 p-5 shadow-[0_22px_80px_rgba(0,0,0,.18)] sm:p-7"}`}
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-bold text-lime-400">{embedded ? "HISTORIAS DE ESTA COMPETENCIA" : "EVIDENCIAS DEL RETO"}</p>
-          <h4 className="mt-1 text-xl font-black">{embedded ? "Recorrido del equipo" : "Historias del equipo"}</h4>
+          <p className="text-xs font-bold text-lime-400">
+            {embedded ? "HISTORIAS DE ESTA COMPETENCIA" : "EVIDENCIAS DEL RETO"}
+          </p>
+          <h4 className="mt-1 text-xl font-black">
+            {embedded ? "Recorrido del equipo" : "Historias del equipo"}
+          </h4>
           <p className="mt-1 text-sm muted">
             Revisa las nuevas evidencias. Cuando decidas, pasarán al historial
             del reto.
@@ -380,7 +408,16 @@ export function ChallengeEvidenceFeed({
                     <span className="text-xl font-black text-white">
                       {item.ownerName.charAt(0)}
                     </span>
-                    <span className="absolute inset-0 grid place-items-center bg-slate-950/45">
+                    {item.avatarUrl ? (
+                      <Image
+                        src={item.avatarUrl}
+                        alt={`Foto de ${item.ownerName}`}
+                        fill
+                        unoptimized
+                        className="object-cover"
+                      />
+                    ) : null}
+                    <span className="absolute inset-0 grid place-items-center bg-slate-950/35">
                       <LockKeyhole size={19} className="text-lime-300" />
                     </span>
                     <span className="absolute bottom-0 right-0 rounded-full bg-lime-400 px-1.5 py-1 text-[8px] font-black text-slate-950">
@@ -598,8 +635,17 @@ export function ChallengeEvidenceFeed({
             )}
             <div className="absolute inset-x-0 top-2 z-30 flex items-center justify-between gap-3 bg-gradient-to-b from-black/80 to-transparent px-4 pb-8 pt-4">
               <div className="flex min-w-0 items-center gap-3">
-                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-orange-400 to-lime-400 font-black text-slate-950">
+                <div className="relative grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-orange-400 to-lime-400 font-black text-slate-950">
                   {activeItem.ownerName.charAt(0).toUpperCase()}
+                  {activeItem.avatarUrl ? (
+                    <Image
+                      src={activeItem.avatarUrl}
+                      alt={`Foto de ${activeItem.ownerName}`}
+                      fill
+                      unoptimized
+                      className="object-cover"
+                    />
+                  ) : null}
                 </div>
                 <div className="min-w-0">
                   <strong className="block truncate">
@@ -618,7 +664,28 @@ export function ChallengeEvidenceFeed({
                   </p>
                 </div>
               </div>
-              <div className="flex gap-2">{privateView && <button type="button" onClick={() => void togglePause()} aria-label={paused ? "Reanudar historia" : "Pausar historia"} className="rounded-full bg-black/55 p-2">{paused ? <Play size={20}/> : <Pause size={20}/>}</button>}<button type="button" onClick={() => closeViewer()} aria-label="Cerrar historia" className="rounded-full bg-black/55 p-2"><X /></button></div>
+              <div className="flex gap-2">
+                {privateView && (
+                  <button
+                    type="button"
+                    onClick={() => void togglePause()}
+                    aria-label={
+                      paused ? "Reanudar historia" : "Pausar historia"
+                    }
+                    className="rounded-full bg-black/55 p-2"
+                  >
+                    {paused ? <Play size={20} /> : <Pause size={20} />}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => closeViewer()}
+                  aria-label="Cerrar historia"
+                  className="rounded-full bg-black/55 p-2"
+                >
+                  <X />
+                </button>
+              </div>
             </div>
 
             <div
@@ -638,16 +705,16 @@ export function ChallengeEvidenceFeed({
                 </div>
               )}
               {privateView && (
-                  <button
-                    type="button"
-                    onClick={() => setZoomed((value) => !value)}
-                    className="absolute right-4 top-24 z-20 grid h-11 w-11 place-items-center rounded-full bg-black/65 text-white backdrop-blur"
-                    aria-label={
-                      zoomed ? "Alejar fotografía" : "Ampliar fotografía"
-                    }
-                  >
-                    {zoomed ? <ZoomOut size={20} /> : <ZoomIn size={20} />}
-                  </button>
+                <button
+                  type="button"
+                  onClick={() => setZoomed((value) => !value)}
+                  className="absolute right-4 top-24 z-20 grid h-11 w-11 place-items-center rounded-full bg-black/65 text-white backdrop-blur"
+                  aria-label={
+                    zoomed ? "Alejar fotografía" : "Ampliar fotografía"
+                  }
+                >
+                  {zoomed ? <ZoomOut size={20} /> : <ZoomIn size={20} />}
+                </button>
               )}
               {activeItem.photos.length > 1 && (
                 <div className="absolute inset-x-0 bottom-4 z-20 flex justify-center gap-2">
@@ -750,10 +817,14 @@ export function ChallengeEvidenceFeed({
                     Historial compartido del reto
                   </div>
                   <p className="mt-1 text-xs muted">
-                    Ya revisaste esta evidencia. Puedes volver a verla durante una ventana temporal sin cambiar tu decisión.
+                    Ya revisaste esta evidencia. Puedes volver a verla durante
+                    una ventana temporal sin cambiar tu decisión.
                   </p>
                   <span className="mt-3 inline-flex rounded-full bg-slate-950/70 px-3 py-1.5 text-[10px] font-black text-lime-300">
-                    TU DECISIÓN · {activeItem.myVerdict === "CONFIRMED" ? "SÍ CUENTA" : "REVISIÓN SOLICITADA"}
+                    TU DECISIÓN ·{" "}
+                    {activeItem.myVerdict === "CONFIRMED"
+                      ? "SÍ CUENTA"
+                      : "REVISIÓN SOLICITADA"}
                   </span>
                 </div>
               ) : (

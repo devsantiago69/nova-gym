@@ -1,0 +1,12 @@
+[Unit]
+Description=Finalize expired Nova Gym challenges every minute
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+AccuracySec=10s
+Persistent=true
+Unit=nova-gym-challenge-finalizer.service
+
+[Install]
+WantedBy=timers.target

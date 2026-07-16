@@ -27,7 +27,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cha
       attendance: { select: { startLatitude: true, startLongitude: true, startAccuracyMeters: true, challengeReviews: { where: { reviewerId: session.user.id }, select: { id: true } } } },
     },
   });
-  if (!evidence) return fail("EVIDENCE_UNAVAILABLE", "Esta evidencia no está disponible en tus retos compartidos", 404);
+  if (!evidence || !evidence.attendance) return fail("EVIDENCE_UNAVAILABLE", "Esta evidencia no está disponible en tus retos compartidos", 404);
   const reviewed = evidence.attendance.challengeReviews.length > 0;
   if (mode === "replay" && !reviewed) return fail("EVIDENCE_NOT_REVIEWED", "Primero debes validar esta evidencia desde Retos", 409);
   if (mode === "verify" && reviewed) return fail("EVIDENCE_ALREADY_REVIEWED", "La evidencia ya fue validada; ábrela desde el historial", 409);

@@ -20,7 +20,6 @@ export async function syncChallengeProgressInTransaction(tx: Prisma.TransactionC
   const challenge = await tx.challenge.findUnique({
     where: { id: challengeId },
     include: {
-      category: true,
       participants: { include: { user: { include: { profile: true } } } },
     },
   });
@@ -29,7 +28,7 @@ export async function syncChallengeProgressInTransaction(tx: Prisma.TransactionC
   for (const participant of challenge.participants) {
     const timezone = participant.user.profile?.timezone ?? "America/Bogota";
     const firstDay = dateInTimezone(challenge.startsAt, timezone);
-    const dayAfterLast = addUtcDays(firstDay, challenge.category.durationDays);
+    const dayAfterLast = addUtcDays(firstDay, challenge.durationDays);
     const attendances = await tx.attendance.findMany({
       where: {
         userId: participant.userId,
@@ -40,13 +39,13 @@ export async function syncChallengeProgressInTransaction(tx: Prisma.TransactionC
       select: { id: true },
     });
 
-    if (challenge.category.pointsPerAttendance > 0 && attendances.length > 0) {
+    if (challenge.pointsPerCompletion > 0 && attendances.length > 0) {
       await tx.challengeScoreEvent.createMany({
         data: attendances.map((attendance) => ({
           challengeId: challenge.id,
           userId: participant.userId,
           attendanceId: attendance.id,
-          points: challenge.category.pointsPerAttendance,
+          points: challenge.pointsPerCompletion,
           idempotencyKey: `challenge:${challenge.id}:attendance:${attendance.id}:user:${participant.userId}`,
         })),
         skipDuplicates: true,
@@ -76,7 +75,7 @@ export async function challengeScoreForParticipant(tx: Prisma.TransactionClient,
       },
     },
   });
-  return events.reduce((total, event) => total + (event.attendance.challengeReviews.length === 0 ? event.points : 0), 0);
+  return events.reduce((total, event) => total + (!event.attendance || event.attendance.challengeReviews.length === 0 ? event.points : 0), 0);
 }
 
 export async function syncChallengeProgress(challengeId: string) {

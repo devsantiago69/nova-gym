@@ -48,7 +48,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         userDisplayName(session.user.id),
         prisma.challengeParticipant.findMany({
           where: { userId: session.user.id, challenge: { status: "ACTIVE" } },
-          include: { challenge: { include: { category: true, participants: { where: { acceptedAt: { not: null } }, select: { userId: true } } } } },
+          include: { challenge: { include: { participants: { where: { acceptedAt: { not: null } }, select: { userId: true } } } } },
         }),
       ]);
       const validationTargets = new Map<string, { challengeIds: string[]; challengeNames: string[] }>();
@@ -56,7 +56,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         if (participant.userId === session.user.id) continue;
         const current = validationTargets.get(participant.userId) ?? { challengeIds: [], challengeNames: [] };
         current.challengeIds.push(membership.challengeId);
-        current.challengeNames.push(membership.challenge.category.name);
+        current.challengeNames.push(membership.challenge.name);
         validationTargets.set(participant.userId, current);
       }
       await createNotifications([...validationTargets.entries()].map(([userId, target]) => ({
@@ -70,7 +70,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         dedupeKey: `attendance-evidence-pending:${id}:${userId}`,
       })));
       for (const membership of memberships) {
-        const targetScore = membership.challenge.category.targetAttendances * Math.max(1, membership.challenge.category.pointsPerAttendance);
+        const targetScore = membership.challenge.targetValue * Math.max(1, membership.challenge.pointsPerCompletion);
         if (membership.score < targetScore) continue;
         const teammateIds = membership.challenge.participants.map(({ userId }) => userId).filter((userId) => userId !== session.user.id);
         await createNotifications(teammateIds.map((userId) => ({
@@ -78,7 +78,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           actorId: session.user.id,
           type: "CHALLENGE_COMPLETED" as const,
           title: "¡Meta alcanzada en el reto!",
-          body: `${actorName} completó la meta de “${membership.challenge.category.name}”.`,
+          body: `${actorName} completó la meta de “${membership.challenge.name}”.`,
           href: "/retos",
           data: { challengeId: membership.challengeId, attendanceId: id },
           dedupeKey: `challenge-target-reached:${membership.challengeId}:${session.user.id}:${userId}`,

@@ -4,18 +4,18 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, CheckCircle2, Clock3, Flame, Search, ShieldCheck, Sparkles, Swords, Target, UserRound, UserPlus, UsersRound, X } from "lucide-react";
 
-type Category = { id: string; name: string; description: string; durationDays: number; targetAttendances: number; pointsPerAttendance: number; completionBonus: number };
+type Category = { id: string; categoryId: string; templateId: string; name: string; description: string; durationDays: number; targetAttendances: number; pointsPerAttendance: number; completionBonus: number };
 type Friend = { id: string; username: string; name: string };
 type Invitation = { id: string; category: string; creator: string };
 
-export function ChallengeActions({ categories, friends, invitations }: { categories: Category[]; friends: Friend[]; invitations: Invitation[] }) {
-  const [step, setStep] = useState(1);
+export function ChallengeActions({ categories, friends, invitations, initialTemplateId }: { categories: Category[]; friends: Friend[]; invitations: Invitation[]; initialTemplateId?: string }) {
+  const [step, setStep] = useState(initialTemplateId ? 1 : 1);
   const [mode, setMode] = useState<"solo" | "social">("social");
   const [message, setMessage] = useState("");
   const [query, setQuery] = useState("");
   const [templateQuery, setTemplateQuery] = useState("");
   const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
-  const [categoryId, setCategoryId] = useState("");
+  const [categoryId, setCategoryId] = useState(categories.find((item) => item.templateId === initialTemplateId)?.id ?? "");
   const [busy, setBusy] = useState(false);
   const selectedCategory = categories.find((category) => category.id === categoryId);
   const visibleFriends = friends.filter((friend) => `${friend.name} ${friend.username}`.toLowerCase().includes(query.trim().toLowerCase()));
@@ -64,7 +64,7 @@ export function ChallengeActions({ categories, friends, invitations }: { categor
         </div>}
 
         {message && <p role="status" className="mt-5 rounded-2xl border border-slate-700 bg-slate-950 p-4 text-center text-sm font-bold text-orange-200">{message}</p>}
-        <div className="mt-6 flex gap-3 border-t border-slate-800 pt-5">{step>1 && <button type="button" onClick={() => { setStep((value)=>value-1); setMessage(""); }} className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border border-slate-700 py-3.5 font-bold"><ArrowLeft size={18}/>Atrás</button>}{step<3 ? <button type="button" onClick={continueWizard} className="btn flex-[1.5] gap-2 py-3.5">Continuar<ArrowRight size={18}/></button> : <button type="button" disabled={busy || !selectedCategory || (mode==="social"&&selectedFriends.length===0)} onClick={() => void action({ action:"create", categoryId, targetIds: mode==="solo" ? [] : selectedFriends })} className="btn flex-[1.5] gap-2 py-3.5"><Swords size={19}/>{busy ? "Creando…" : mode==="solo" ? "Comenzar mi reto" : "Enviar invitación"}</button>}</div>
+        <div className="mt-6 flex gap-3 border-t border-slate-800 pt-5">{step>1 && <button type="button" onClick={() => { setStep((value)=>value-1); setMessage(""); }} className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border border-slate-700 py-3.5 font-bold"><ArrowLeft size={18}/>Atrás</button>}{step<3 ? <button type="button" onClick={continueWizard} className="btn flex-[1.5] gap-2 py-3.5">Continuar<ArrowRight size={18}/></button> : <button type="button" disabled={busy || !selectedCategory || (mode==="social"&&selectedFriends.length===0)} onClick={() => void action({ action:"create", categoryId:selectedCategory?.categoryId, templateId:selectedCategory?.templateId, targetIds: mode==="solo" ? [] : selectedFriends })} className="btn flex-[1.5] gap-2 py-3.5"><Swords size={19}/>{busy ? "Creando…" : mode==="solo" ? "Comenzar mi reto" : "Enviar invitación"}</button>}</div>
       </div>
     </section>
   </div>;
