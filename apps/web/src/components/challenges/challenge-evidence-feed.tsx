@@ -33,7 +33,7 @@ export type ChallengeEvidence = {
   ownerId: string;
   ownerName: string;
   username: string;
-  avatarUrl?: string;
+  avatarUrl?: string | undefined;
   localDate: string;
   durationMinutes: number | null;
   latitude: number | null;

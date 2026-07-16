@@ -16,6 +16,7 @@ const iconByType = {
   CHALLENGE_COMPLETED: Trophy,
   ATTENDANCE_COMPLETED: Dumbbell,
   EVIDENCE_REVIEWED: CheckCheck,
+  CLUB_SESSION: Users,
   SYSTEM: Bell,
 } as const;
 

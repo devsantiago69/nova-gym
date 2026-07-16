@@ -25,7 +25,7 @@ export type StoryItem = {
   challengeName?: string;
   ownerName: string;
   username: string;
-  avatarUrl?: string;
+  avatarUrl?: string | undefined;
   isOwn: boolean;
   photos: Array<{ id: string; type: string }>;
   durationMinutes: number | null;

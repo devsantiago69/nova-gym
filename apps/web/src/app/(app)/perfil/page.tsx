@@ -7,6 +7,8 @@ import {
   Crown,
   Flame,
   Medal,
+  QrCode,
+  Settings,
   Trophy,
   Users,
 } from "lucide-react";
@@ -61,38 +63,82 @@ export default async function Page() {
   ] as const;
   return (
     <section className="pb-8">
-      <div className="relative overflow-hidden rounded-[32px] border border-slate-700 bg-gradient-to-br from-lime-500/20 via-slate-900 to-orange-500/10 p-6 sm:p-9">
-        <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-lime-400/10 blur-3xl" />
-        <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center">
-          <ProfileAvatarEditor
-            userId={user.id}
-            name={name}
-            hasAvatar={Boolean(user.profile?.avatarKey)}
-          />
-          <div className="min-w-0 flex-1 text-center sm:text-left">
-            <p className="text-xs font-black tracking-[.18em] text-lime-300">
-              IDENTIDAD NOVA
-            </p>
-            <h1 className="mt-2 truncate text-4xl font-black sm:text-5xl">
-              {name}
-            </h1>
-            <p className="mt-2 text-lg muted">
-              @{user.username} · Plan{" "}
-              {user.subscriptions[0]?.plan.name ?? "Sin plan"}
-            </p>
-            {fitness.streak > 0 ? (
-              <p className="mt-5 inline-flex items-center gap-2 rounded-full bg-orange-400/15 px-4 py-2 font-bold text-orange-300">
-                <Flame size={19} />
-                Tu fuego lleva {fitness.streak} días encendido
+      <section className="relative isolate overflow-hidden rounded-[34px] border border-white/10 bg-slate-900/80 shadow-[0_30px_100px_rgba(0,0,0,.28)] backdrop-blur-xl">
+        <div className="absolute inset-x-0 top-0 -z-10 h-36 bg-[radial-gradient(circle_at_20%_20%,rgba(34,211,238,.25),transparent_35%),radial-gradient(circle_at_80%_10%,rgba(163,230,53,.25),transparent_34%),linear-gradient(135deg,#12221f,#111827_55%,#25152a)] sm:h-44" />
+        <div className="px-5 pb-5 pt-16 text-center sm:px-8 sm:pb-8 sm:pt-20">
+          <div className="mx-auto w-fit">
+            <ProfileAvatarEditor
+              userId={user.id}
+              name={name}
+              hasAvatar={Boolean(user.profile?.avatarKey)}
+            />
+          </div>
+          <div className="mt-5">
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <h1 className="text-3xl font-black sm:text-5xl">{name}</h1>
+              <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-[9px] font-black tracking-wide text-cyan-200">
+                PERFIL ACTIVO
+              </span>
+            </div>
+            <p className="mt-1 text-sm text-slate-400">@{user.username}</p>
+            {user.profile?.bio ? (
+              <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-slate-200">
+                {user.profile.bio}
               </p>
             ) : (
-              <p className="mt-5 inline-flex rounded-full bg-slate-950/60 px-4 py-2 text-sm font-bold text-slate-300">
-                Tu próxima racha empieza hoy
+              <p className="mx-auto mt-3 max-w-xl text-sm text-slate-500">
+                Comparte tu meta o lo que te inspira desde los ajustes de tu
+                perfil.
               </p>
             )}
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+              <span className="rounded-full bg-white/[.06] px-3 py-2 text-[11px] font-black text-slate-300">
+                PLAN {user.subscriptions[0]?.plan.name ?? "SIN PLAN"}
+              </span>
+              {fitness.streak > 0 ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-400/10 px-3 py-2 text-[11px] font-black text-orange-300">
+                  <Flame size={14} />
+                  Racha de {fitness.streak} días
+                </span>
+              ) : (
+                <span className="rounded-full bg-lime-400/10 px-3 py-2 text-[11px] font-black text-lime-300">
+                  Tu próxima racha comienza hoy
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="-mx-2 mt-6 flex snap-x gap-2 overflow-x-auto px-2 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-5 sm:overflow-visible sm:px-0">
+            {cards.map(([Icon, label, value, color]) => (
+              <div
+                key={label}
+                className="min-w-[116px] snap-start rounded-2xl border border-white/[.06] bg-black/20 p-3 text-left sm:min-w-0 sm:text-center"
+              >
+                <Icon size={18} className={`${color} sm:mx-auto`} />
+                <strong className="mt-2 block text-xl">{value}</strong>
+                <span className="block text-[10px] text-slate-400">
+                  {label}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-5 grid grid-cols-2 gap-2">
+            <a
+              href="#ajustes"
+              className="flex items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-950/50 px-4 py-3 text-sm font-black transition hover:border-lime-300"
+            >
+              <Settings size={17} />
+              Editar perfil
+            </a>
+            <a
+              href="#mi-qr"
+              className="flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-black text-slate-950 transition hover:bg-lime-300"
+            >
+              <QrCode size={17} />
+              Compartir perfil
+            </a>
           </div>
         </div>
-      </div>
+      </section>
       {user.subscriptions[0]?.plan.code !== "PRO" ? (
         <Link
           href="/planes"
@@ -115,41 +161,34 @@ export default async function Page() {
           <ArrowRight className="shrink-0 text-lime-300 transition group-hover:translate-x-1" />
         </Link>
       ) : null}
-      <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        {cards.map(([Icon, label, value, color]) => (
-          <article key={label} className="card p-4 sm:p-5">
-            <Icon className={color} />
-            <p className="mt-3 text-2xl font-black">{value}</p>
-            <p className="text-xs muted sm:text-sm">{label}</p>
-          </article>
-        ))}
-      </div>
       <ProfileSocialHub
         qrSvg={qrSvg}
         shareUrl={shareUrl}
         stats={{ name, username: user.username, ...fitness }}
       />
-      <ProfileAccountCenter
-        initial={{
-          firstName: user.profile?.firstName ?? "",
-          lastName: user.profile?.lastName ?? "",
-          username: user.username,
-          email: user.email,
-          whatsappNumber: user.whatsappNumber ?? "",
-          bio: user.profile?.bio ?? "",
-          locale: user.profile?.locale === "en" ? "en" : "es",
-          localeAuto: user.profile?.localeAuto ?? true,
-          fontFamily:
-            user.profile?.fontFamily === "modern" ||
-            user.profile?.fontFamily === "rounded" ||
-            user.profile?.fontFamily === "editorial"
-              ? user.profile.fontFamily
-              : "nova",
-          storyDurationSeconds: user.profile?.storyDurationSeconds ?? 10,
-          timezone: user.profile?.timezone ?? "America/Bogota",
-          showActiveChallenges: user.profile?.showActiveChallenges ?? true,
-        }}
-      />
+      <div id="ajustes" className="scroll-mt-24">
+        <ProfileAccountCenter
+          initial={{
+            firstName: user.profile?.firstName ?? "",
+            lastName: user.profile?.lastName ?? "",
+            username: user.username,
+            email: user.email,
+            whatsappNumber: user.whatsappNumber ?? "",
+            bio: user.profile?.bio ?? "",
+            locale: user.profile?.locale === "en" ? "en" : "es",
+            localeAuto: user.profile?.localeAuto ?? true,
+            fontFamily:
+              user.profile?.fontFamily === "modern" ||
+              user.profile?.fontFamily === "rounded" ||
+              user.profile?.fontFamily === "editorial"
+                ? user.profile.fontFamily
+                : "nova",
+            storyDurationSeconds: user.profile?.storyDurationSeconds ?? 10,
+            timezone: user.profile?.timezone ?? "America/Bogota",
+            showActiveChallenges: user.profile?.showActiveChallenges ?? true,
+          }}
+        />
+      </div>
       <div className="mt-6 flex gap-3 rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-lime-400/10 text-lime-300">
           ✓
