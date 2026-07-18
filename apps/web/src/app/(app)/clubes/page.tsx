@@ -14,7 +14,11 @@ export default async function ClubsPage() {
     where: {
       OR: [
         { visibility: { not: "PRIVATE" } },
-        { memberships: { some: { userId, status: "ACTIVE" } } },
+        {
+          memberships: {
+            some: { userId, status: { in: ["ACTIVE", "INVITED"] } },
+          },
+        },
       ],
     },
     include: {
@@ -37,13 +41,18 @@ export default async function ClubsPage() {
     type: club.type,
     visibility: club.visibility,
     city: club.city,
+    department: club.department,
     discipline: club.discipline,
+    disciplines: club.disciplines,
+    latitude: club.latitude?.toString() ?? null,
+    longitude: club.longitude?.toString() ?? null,
     accentColor: club.accentColor,
     memberCount: club._count.memberships,
     membershipStatus: club.memberships[0]?.status ?? null,
     ownerName:
       `${club.owner.profile?.firstName ?? ""} ${club.owner.profile?.lastName ?? ""}`.trim() ||
       club.owner.username,
+    avatarUrl: club.avatarKey ? `/api/v1/clubs/${club.id}/avatar` : null,
   }));
   const mine = summaries.filter(
     (club) => club.membershipStatus === "ACTIVE",

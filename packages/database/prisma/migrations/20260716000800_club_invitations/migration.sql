@@ -1,0 +1,1 @@
+ALTER TYPE "ClubMembershipStatus" ADD VALUE IF NOT EXISTS 'INVITED';

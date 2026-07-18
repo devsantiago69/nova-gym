@@ -1,122 +1,107 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { Check, DoorOpen, LoaderCircle, UserPlus, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Camera,
+  Check,
+  Crown,
+  DoorOpen,
+  LoaderCircle,
+  LocateFixed,
+  Pencil,
+  Search,
+  Settings2,
+  Shield,
+  ShieldCheck,
+  Sparkles,
+  Trash2,
+  UserMinus,
+  UserPlus,
+  UsersRound,
+  X,
+} from "lucide-react";
 
+export type ClubMemberAdminDto = { membershipId: string; userId: string; name: string; username: string; role: string; avatarUrl: string | null };
+export type ClubFriendInviteDto = { userId: string; name: string; username: string; avatarUrl: string | null; membershipStatus: string | null };
+export type ClubSettingsDto = {
+  name: string; description: string; type: string; visibility: string; country: string; department: string | null; city: string | null; discipline: string | null; disciplines: string[]; accentColor: string; memberLimit: number; latitude: string | null; longitude: string | null; avatarUrl: string | null;
+};
 type RequestItem = { id: string; name: string; username: string };
-export function ClubDetailActions({
-  clubId,
-  membership,
-  requests,
-}: {
-  clubId: string;
-  membership: { status: string; role: string } | null;
-  requests: RequestItem[];
-}) {
+const disciplineOptions = ["Fuerza", "Hipertrofia", "Running", "Cross training", "Ciclismo", "Calistenia", "Boxeo", "Yoga", "Pilates", "Spinning", "Baile", "Natación", "Fútbol", "Movilidad", "Bienestar"];
+const accents = [["lime", "Pulso", "bg-lime-400"], ["cyan", "Flow", "bg-cyan-400"], ["orange", "Fuego", "bg-orange-400"], ["violet", "Aura", "bg-violet-400"]] as const;
+
+export function ClubDetailActions({ clubId, membership, requests, members, friends, settings }: { clubId: string; membership: { status: string; role: string } | null; requests: RequestItem[]; members: ClubMemberAdminDto[]; friends: ClubFriendInviteDto[]; settings: ClubSettingsDto }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string>();
   const [message, setMessage] = useState("");
-  const canManage =
-    membership?.status === "ACTIVE" &&
-    ["OWNER", "ADMIN"].includes(membership.role);
-  async function action(action: string, membershipId?: string) {
-    const key = membershipId ?? action;
-    setBusy(key);
-    setMessage("");
-    const response = await fetch(`/api/v1/clubs/${clubId}/membership`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action, membershipId }),
-    });
-    const json = (await response.json()) as {
-      message: string;
-      errors?: Array<{ message: string }>;
-    };
-    setBusy(undefined);
-    setMessage(
-      response.ok ? json.message : (json.errors?.[0]?.message ?? json.message),
-    );
+  const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<"identity" | "team" | "invite">("identity");
+  const [friendQuery, setFriendQuery] = useState("");
+  const [draft, setDraft] = useState({ ...settings, department: settings.department ?? "", city: settings.city ?? "", discipline: settings.discipline ?? settings.disciplines[0] ?? "Fuerza", disciplines: settings.disciplines.length ? settings.disciplines : [settings.discipline ?? "Fuerza"], latitude: settings.latitude ?? "", longitude: settings.longitude ?? "" });
+  const canManage = membership?.status === "ACTIVE" && ["OWNER", "ADMIN"].includes(membership.role);
+  const isOwner = membership?.status === "ACTIVE" && membership.role === "OWNER";
+  const visibleFriends = useMemo(() => friends.filter((friend) => `${friend.name} ${friend.username}`.toLowerCase().includes(friendQuery.toLowerCase().trim())), [friends, friendQuery]);
+  useEffect(() => { if (!message) return; const timeout = window.setTimeout(() => setMessage(""), 3500); return () => window.clearTimeout(timeout); }, [message]);
+
+  async function action(actionName: string, options: { membershipId?: string; userId?: string } = {}) {
+    if (["transfer", "remove"].includes(actionName) && !window.confirm(actionName === "transfer" ? "¿Confirmas que deseas ceder la propiedad? Tú quedarás como administrador." : "¿Retirar a esta persona del club?")) return;
+    const key = options.membershipId ?? options.userId ?? actionName;
+    setBusy(key); setMessage("");
+    const response = await fetch(`/api/v1/clubs/${clubId}/membership`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: actionName, ...options }) });
+    const json = (await response.json()) as { message: string; errors?: Array<{ message: string }> };
+    setBusy(undefined); setMessage(response.ok ? json.message : (json.errors?.[0]?.message ?? json.message));
     if (response.ok) router.refresh();
   }
-  return (
-    <div className="space-y-4">
-      {membership?.status === "ACTIVE" && membership.role !== "OWNER" ? (
-        <button
-          type="button"
-          disabled={busy === "leave"}
-          onClick={() => void action("leave")}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-red-400/25 py-3.5 text-sm font-bold text-red-300"
-        >
-          <DoorOpen size={17} />
-          Salir del club
-        </button>
-      ) : membership?.status === "PENDING" ? (
-        <p className="rounded-2xl bg-orange-400/10 p-4 text-center text-sm font-bold text-orange-200">
-          Tu solicitud está esperando aprobación.
-        </p>
-      ) : !membership || ["LEFT", "REJECTED"].includes(membership.status) ? (
-        <button
-          type="button"
-          disabled={busy === "join"}
-          onClick={() => void action("join")}
-          className="btn w-full gap-2 py-4"
-        >
-          {busy === "join" ? (
-            <LoaderCircle className="animate-spin" />
-          ) : (
-            <UserPlus />
-          )}
-          Unirme al club
-        </button>
-      ) : null}
-      {canManage && requests.length ? (
-        <section className="rounded-[26px] border border-orange-400/20 bg-orange-400/[.05] p-4">
-          <p className="text-[10px] font-black tracking-[.14em] text-orange-300">
-            SOLICITUDES PENDIENTES
-          </p>
-          <div className="mt-3 space-y-2">
-            {requests.map((request) => (
-              <article
-                key={request.id}
-                className="flex items-center gap-3 rounded-2xl bg-slate-950/70 p-3"
-              >
-                <span className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-orange-300 to-lime-300 font-black text-slate-950">
-                  {request.name.charAt(0)}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <strong className="block truncate text-sm">
-                    {request.name}
-                  </strong>
-                  <small className="text-slate-500">@{request.username}</small>
-                </span>
-                <button
-                  disabled={busy === request.id}
-                  onClick={() => void action("approve", request.id)}
-                  className="grid h-9 w-9 place-items-center rounded-full bg-lime-300 text-slate-950"
-                >
-                  <Check size={16} />
-                </button>
-                <button
-                  disabled={busy === request.id}
-                  onClick={() => void action("reject", request.id)}
-                  className="grid h-9 w-9 place-items-center rounded-full bg-red-500/10 text-red-300"
-                >
-                  <X size={16} />
-                </button>
-              </article>
-            ))}
-          </div>
-        </section>
-      ) : null}
-      {message ? (
-        <p
-          role="status"
-          className="rounded-2xl border border-slate-700 bg-slate-950 p-3 text-center text-xs font-bold text-lime-200"
-        >
-          {message}
-        </p>
-      ) : null}
-    </div>
-  );
+
+  function locate() {
+    if (!navigator.geolocation) return setMessage("Tu dispositivo no permite obtener ubicación");
+    setBusy("location");
+    navigator.geolocation.getCurrentPosition(async ({ coords }) => {
+      const response = await fetch(`/api/v1/geo/colombia?resource=reverse&latitude=${coords.latitude}&longitude=${coords.longitude}`);
+      const json = (await response.json()) as { data?: { country: string; department: string; city: string; latitude: number; longitude: number } };
+      setBusy(undefined);
+      if (!json.data) return setMessage("No pudimos reconocer la ubicación");
+      setDraft((current) => ({ ...current, country: json.data!.country, department: json.data!.department, city: json.data!.city, latitude: String(json.data!.latitude), longitude: String(json.data!.longitude) }));
+      setMessage("Punto del club actualizado con tu GPS");
+    }, () => { setBusy(undefined); setMessage("No pudimos leer tu ubicación"); }, { enableHighAccuracy: true, timeout: 12_000 });
+  }
+
+  function toggleDiscipline(value: string) {
+    setDraft((current) => { const selected = current.disciplines.includes(value) ? current.disciplines.filter((item) => item !== value) : [...current.disciplines, value]; const safe = selected.length ? selected : [value]; return { ...current, disciplines: safe, discipline: safe[0] ?? value }; });
+  }
+
+  async function saveSettings() {
+    setBusy("save"); setMessage("");
+    const response = await fetch(`/api/v1/clubs/${clubId}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(draft) });
+    const json = (await response.json()) as { message: string; errors?: Array<{ message: string }> };
+    setBusy(undefined); setMessage(response.ok ? json.message : (json.errors?.[0]?.message ?? json.message));
+    if (response.ok) router.refresh();
+  }
+
+  async function uploadPhoto(file: File) {
+    setBusy("photo"); const form = new FormData(); form.set("avatar", file);
+    const response = await fetch(`/api/v1/clubs/${clubId}/avatar`, { method: "POST", body: form });
+    const json = (await response.json()) as { data?: { avatarUrl: string }; message: string; errors?: Array<{ message: string }> };
+    setBusy(undefined); setMessage(response.ok ? json.message : (json.errors?.[0]?.message ?? json.message));
+    if (response.ok && json.data) { setDraft((current) => ({ ...current, avatarUrl: json.data!.avatarUrl })); router.refresh(); }
+  }
+
+  return <div className="space-y-4">
+    {membership?.status === "INVITED" ? <section className="rounded-[26px] border border-lime-300/25 bg-lime-300/[.07] p-5 text-center"><Sparkles className="mx-auto text-lime-300" /><h3 className="mt-3 font-black">Te quieren en este equipo</h3><p className="mt-1 text-sm text-slate-400">Acepta la invitación para abrir el vestuario privado.</p><div className="mt-4 grid grid-cols-2 gap-2"><button onClick={() => void action("accept_invite")} className="btn py-3"><Check size={16} /> Aceptar</button><button onClick={() => void action("decline_invite")} className="rounded-xl border border-slate-700 text-sm font-bold">Ahora no</button></div></section> : null}
+    {membership?.status === "ACTIVE" && membership.role !== "OWNER" ? <button disabled={busy === "leave"} onClick={() => void action("leave")} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-red-400/25 py-3.5 text-sm font-bold text-red-300"><DoorOpen size={17} /> Salir del club</button> : membership?.status === "PENDING" ? <p className="rounded-2xl bg-orange-400/10 p-4 text-center text-sm font-bold text-orange-200">Tu solicitud está esperando aprobación.</p> : !membership || ["LEFT", "REJECTED"].includes(membership.status) ? <button disabled={busy === "join"} onClick={() => void action("join")} className="btn w-full gap-2 py-4">{busy === "join" ? <LoaderCircle className="animate-spin" /> : <UserPlus />} Unirme al club</button> : null}
+    {canManage ? <button onClick={() => setOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-cyan-300/25 bg-cyan-300/[.06] py-4 text-sm font-black text-cyan-200"><Settings2 size={18} /> Administrar club{requests.length ? <span className="rounded-full bg-orange-300 px-2 py-0.5 text-[10px] text-slate-950">{requests.length}</span> : null}</button> : null}
+    {isOwner ? <p className="rounded-2xl border border-orange-300/15 bg-orange-300/[.04] p-3 text-center text-[11px] text-orange-100"><Crown size={13} className="mr-1 inline" /> Eres propietario. Para salir primero debes ceder el club.</p> : null}
+    {message ? <p role="status" className="fixed bottom-24 left-1/2 z-[130] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-2xl border border-lime-300/20 bg-slate-950 p-4 text-center text-xs font-bold text-lime-200 shadow-2xl">{message}</p> : null}
+
+    {open ? <div className="fixed inset-0 z-[120] overflow-y-auto bg-black/85 p-2 backdrop-blur-xl sm:p-6"><section className="mx-auto min-h-full w-full max-w-4xl overflow-hidden rounded-[30px] border border-white/10 bg-[#0b1220] shadow-2xl sm:min-h-0">
+      <header className="relative border-b border-slate-800 bg-[radial-gradient(circle_at_85%_0%,rgba(34,211,238,.16),transparent_35%)] p-5 sm:p-7"><button onClick={() => setOpen(false)} className="absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-full bg-slate-950"><X size={18} /></button><p className="text-[10px] font-black tracking-[.17em] text-cyan-300">NOVA CLUB STUDIO</p><h2 className="mt-2 pr-12 text-3xl font-black">Dirige tu comunidad</h2><p className="mt-2 text-sm text-slate-400">Identidad, equipo e invitaciones desde un solo lugar.</p><nav className="mt-5 grid grid-cols-3 rounded-2xl bg-slate-950/70 p-1.5">{[["identity", Pencil, "Identidad"], ["team", UsersRound, `Equipo ${requests.length ? `(${requests.length})` : ""}`], ["invite", UserPlus, "Invitar"]].map(([value, Icon, label]) => { const TabIcon = Icon as typeof Pencil; return <button key={String(value)} onClick={() => setTab(value as typeof tab)} className={`flex items-center justify-center gap-2 rounded-xl py-3 text-xs font-black ${tab === value ? "bg-white/10 text-white" : "text-slate-500"}`}><TabIcon size={15} />{String(label)}</button>; })}</nav></header>
+      <div className="p-5 sm:p-7">
+        {tab === "identity" ? <div className="space-y-5"><div className="flex flex-col gap-4 rounded-[24px] border border-slate-700 bg-slate-950/40 p-4 sm:flex-row sm:items-center"><label className="relative grid h-24 w-24 shrink-0 cursor-pointer place-items-center overflow-hidden rounded-[24px] border-2 border-cyan-300/30 bg-cyan-300/10">{draft.avatarUrl ? <Image src={draft.avatarUrl} alt="Foto del club" fill unoptimized className="object-cover" /> : <Camera className="text-cyan-300" />}<input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" className="sr-only" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadPhoto(file); }} />{busy === "photo" ? <span className="absolute inset-0 grid place-items-center bg-black/70"><LoaderCircle className="animate-spin" /></span> : null}</label><div><h3 className="font-black">Identidad del club</h3><p className="mt-1 text-sm text-slate-400">Toca la fotografía para cambiarla. Se actualizará en catálogo, ranking y feed.</p></div></div><div className="grid gap-4 sm:grid-cols-2"><label className="sm:col-span-2"><span className="text-xs font-black">Nombre</span><input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} className="control mt-2" /></label><label className="sm:col-span-2"><span className="text-xs font-black">Propósito</span><textarea rows={3} value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} className="control mt-2 resize-none" /></label><label><span className="text-xs font-black">Tipo</span><select value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value })} className="control mt-2"><option value="GYM">Gimnasio</option><option value="CITY">Ciudad</option><option value="DISCIPLINE">Disciplina</option><option value="COMMUNITY">Comunidad</option></select></label><label><span className="text-xs font-black">Acceso</span><select value={draft.visibility} onChange={(e) => setDraft({ ...draft, visibility: e.target.value })} className="control mt-2"><option value="PUBLIC">Abierto</option><option value="REQUEST">Con aprobación</option><option value="PRIVATE">Solo invitación</option></select></label><label><span className="text-xs font-black">Departamento</span><input value={draft.department} onChange={(e) => setDraft({ ...draft, department: e.target.value })} className="control mt-2" /></label><label><span className="text-xs font-black">Ciudad</span><input value={draft.city} onChange={(e) => setDraft({ ...draft, city: e.target.value })} className="control mt-2" /></label></div><button onClick={locate} disabled={busy === "location"} className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-lime-300/20 py-3 text-xs font-black text-lime-300"><LocateFixed size={16} /> Actualizar ubicación con GPS</button><fieldset><legend className="text-xs font-black">Disciplinas</legend><div className="mt-2 flex flex-wrap gap-2">{disciplineOptions.map((item) => <button type="button" key={item} onClick={() => toggleDiscipline(item)} className={`rounded-xl border px-3 py-2 text-[11px] font-bold ${draft.disciplines.includes(item) ? "border-lime-300 bg-lime-300/10 text-lime-200" : "border-slate-700 text-slate-500"}`}>{draft.disciplines.includes(item) ? <Check size={12} className="mr-1 inline" /> : null}{item}</button>)}</div></fieldset><fieldset><legend className="text-xs font-black">Energía visual</legend><div className="mt-2 grid grid-cols-4 gap-2">{accents.map(([value, label, color]) => <button key={value} onClick={() => setDraft({ ...draft, accentColor: value })} className={`rounded-xl border p-2 ${draft.accentColor === value ? "border-white/40" : "border-slate-700"}`}><span className={`block h-6 rounded-lg ${color}`} /><small className="mt-1 block font-bold">{label}</small></button>)}</div></fieldset><label><span className="text-xs font-black">Capacidad máxima</span><input type="number" min={2} max={5000} value={draft.memberLimit} onChange={(e) => setDraft({ ...draft, memberLimit: Number(e.target.value) })} className="control mt-2" /></label><button onClick={() => void saveSettings()} disabled={busy === "save"} className="btn w-full py-4">{busy === "save" ? <LoaderCircle className="animate-spin" /> : <Check />} Guardar cambios</button></div> : null}
+        {tab === "team" ? <div className="space-y-6">{requests.length ? <section><p className="text-[10px] font-black tracking-widest text-orange-300">SOLICITUDES PENDIENTES</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{requests.map((request) => <article key={request.id} className="flex items-center gap-3 rounded-2xl border border-orange-300/15 bg-orange-300/[.04] p-3"><span className="grid h-10 w-10 place-items-center rounded-full bg-orange-300 font-black text-slate-950">{request.name.charAt(0)}</span><span className="min-w-0 flex-1"><strong className="block truncate text-sm">{request.name}</strong><small className="text-slate-500">@{request.username}</small></span><button onClick={() => void action("approve", { membershipId: request.id })} className="grid h-9 w-9 place-items-center rounded-full bg-lime-300 text-slate-950"><Check size={15} /></button><button onClick={() => void action("reject", { membershipId: request.id })} className="grid h-9 w-9 place-items-center rounded-full bg-red-400/10 text-red-300"><X size={15} /></button></article>)}</div></section> : null}<section><div className="flex items-end justify-between"><div><p className="text-[10px] font-black tracking-widest text-cyan-300">VESTUARIO</p><h3 className="text-xl font-black">{members.length} integrantes</h3></div></div><div className="mt-3 space-y-2">{members.map((member) => <article key={member.membershipId} className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-950/50 p-3"><span className="relative grid h-11 w-11 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-lime-300 to-cyan-300 font-black text-slate-950">{member.name.charAt(0)}{member.avatarUrl ? <Image src={member.avatarUrl} alt={member.name} fill unoptimized className="object-cover" /> : null}</span><span className="min-w-0 flex-1"><strong className="flex items-center gap-1 truncate text-sm">{member.name}{member.role === "OWNER" ? <Crown size={13} className="text-orange-300" /> : member.role === "ADMIN" ? <Shield size={13} className="text-cyan-300" /> : null}</strong><small className="text-slate-500">@{member.username} · {member.role === "OWNER" ? "Propietario" : member.role === "ADMIN" ? "Administrador" : "Integrante"}</small></span>{isOwner && member.role !== "OWNER" ? <div className="flex gap-1">{member.role === "ADMIN" ? <button title="Quitar administración" onClick={() => void action("demote", { membershipId: member.membershipId })} className="grid h-9 w-9 place-items-center rounded-xl bg-slate-800 text-slate-400"><Shield size={15} /></button> : <button title="Hacer administrador" onClick={() => void action("promote", { membershipId: member.membershipId })} className="grid h-9 w-9 place-items-center rounded-xl bg-cyan-300/10 text-cyan-300"><ShieldCheck size={15} /></button>}<button title="Ceder propiedad" onClick={() => void action("transfer", { membershipId: member.membershipId })} className="grid h-9 w-9 place-items-center rounded-xl bg-orange-300/10 text-orange-300"><Crown size={15} /></button><button title="Retirar" onClick={() => void action("remove", { membershipId: member.membershipId })} className="grid h-9 w-9 place-items-center rounded-xl bg-red-400/10 text-red-300"><UserMinus size={15} /></button></div> : canManage && member.role === "MEMBER" ? <button title="Retirar" onClick={() => void action("remove", { membershipId: member.membershipId })} className="grid h-9 w-9 place-items-center rounded-xl bg-red-400/10 text-red-300"><UserMinus size={15} /></button> : null}</article>)}</div></section>{isOwner ? <div className="rounded-2xl border border-orange-300/20 bg-orange-300/[.05] p-4"><Crown className="text-orange-300" /><h4 className="mt-2 font-black">¿Quieres abandonar el club?</h4><p className="mt-1 text-sm text-slate-400">Usa la corona junto a un integrante para cederle la propiedad. Después podrás salir normalmente.</p></div> : null}</div> : null}
+        {tab === "invite" ? <div><div className="rounded-[24px] border border-cyan-300/15 bg-cyan-300/[.04] p-4"><UserPlus className="text-cyan-300" /><h3 className="mt-2 text-xl font-black">Invita a tus amigos</h3><p className="mt-1 text-sm text-slate-400">Solo aparecen amistades aceptadas. Recibirán una notificación para decidir.</p><label className="mt-4 flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-950 px-3"><Search size={16} className="text-slate-500" /><input value={friendQuery} onChange={(e) => setFriendQuery(e.target.value)} placeholder="Buscar amigo…" className="w-full bg-transparent py-3 text-sm outline-none" /></label></div><div className="mt-4 grid gap-2 sm:grid-cols-2">{visibleFriends.map((friend) => <article key={friend.userId} className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-950/50 p-3"><span className="relative grid h-11 w-11 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-violet-300 to-cyan-300 font-black text-slate-950">{friend.name.charAt(0)}{friend.avatarUrl ? <Image src={friend.avatarUrl} alt={friend.name} fill unoptimized className="object-cover" /> : null}</span><span className="min-w-0 flex-1"><strong className="block truncate text-sm">{friend.name}</strong><small className="text-slate-500">@{friend.username}</small></span>{friend.membershipStatus === "ACTIVE" ? <span className="text-[10px] font-black text-lime-300">YA ESTÁ</span> : friend.membershipStatus === "INVITED" ? <span className="text-[10px] font-black text-orange-200">INVITADO</span> : <button disabled={busy === friend.userId} onClick={() => void action("invite", { userId: friend.userId })} className="rounded-xl bg-lime-300 px-3 py-2 text-xs font-black text-slate-950">Invitar</button>}</article>)}</div>{!visibleFriends.length ? <div className="p-10 text-center text-sm text-slate-500"><UsersRound className="mx-auto mb-3" />No encontramos amigos disponibles.</div> : null}</div> : null}
+      </div>
+    </section></div> : null}
+  </div>;
 }

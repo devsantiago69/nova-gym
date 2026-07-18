@@ -7,6 +7,7 @@ import {
   CalendarCheck,
   Crown,
   Dumbbell,
+  ExternalLink,
   Flame,
   MapPin,
   Medal,
@@ -15,7 +16,12 @@ import {
   UsersRound,
 } from "lucide-react";
 import { prisma } from "@gymchallenge/database";
-import { ClubDetailActions } from "@/components/clubs/club-detail-actions";
+import {
+  ClubDetailActions,
+  type ClubFriendInviteDto,
+  type ClubMemberAdminDto,
+  type ClubSettingsDto,
+} from "@/components/clubs/club-detail-actions";
 import {
   ClubSocialHub,
   type ClubTrainingDto,
@@ -48,7 +54,7 @@ export default async function ClubPage({
     where: { slug },
     include: {
       memberships: {
-        where: { status: { in: ["ACTIVE", "PENDING"] } },
+        where: { status: { in: ["ACTIVE", "PENDING", "INVITED"] } },
         include: {
           user: {
             select: {
@@ -103,7 +109,11 @@ export default async function ClubPage({
   if (!club) notFound();
   const mine =
     club.memberships.find((member) => member.userId === userId) ?? null;
-  if (club.visibility === "PRIVATE" && mine?.status !== "ACTIVE") notFound();
+  if (
+    club.visibility === "PRIVATE" &&
+    !mine?.status.match(/^(ACTIVE|INVITED)$/)
+  )
+    notFound();
   const active = club.memberships.filter(
     (member) => member.status === "ACTIVE",
   );
@@ -179,6 +189,79 @@ export default async function ClubPage({
             member.user.username,
         }))
     : [];
+  const adminMembers: ClubMemberAdminDto[] = active.map((member) => ({
+    membershipId: member.id,
+    userId: member.userId,
+    role: member.role,
+    username: member.user.username,
+    name:
+      `${member.user.profile?.firstName ?? ""} ${member.user.profile?.lastName ?? ""}`.trim() ||
+      member.user.username,
+    avatarUrl: member.user.profile?.avatarKey
+      ? `/api/v1/profile/avatar/${member.userId}`
+      : null,
+  }));
+  const friendshipRows = canManage
+    ? await prisma.friendship.findMany({
+        where: {
+          status: "ACCEPTED",
+          OR: [{ requesterId: userId }, { addresseeId: userId }],
+        },
+        include: {
+          requester: {
+            select: {
+              id: true,
+              username: true,
+              profile: {
+                select: { firstName: true, lastName: true, avatarKey: true },
+              },
+            },
+          },
+          addressee: {
+            select: {
+              id: true,
+              username: true,
+              profile: {
+                select: { firstName: true, lastName: true, avatarKey: true },
+              },
+            },
+          },
+        },
+      })
+    : [];
+  const inviteFriends: ClubFriendInviteDto[] = friendshipRows.map((row) => {
+    const person = row.requesterId === userId ? row.addressee : row.requester;
+    const relatedMembership = club.memberships.find(
+      (member) => member.userId === person.id,
+    );
+    return {
+      userId: person.id,
+      username: person.username,
+      name:
+        `${person.profile?.firstName ?? ""} ${person.profile?.lastName ?? ""}`.trim() ||
+        person.username,
+      avatarUrl: person.profile?.avatarKey
+        ? `/api/v1/profile/avatar/${person.id}`
+        : null,
+      membershipStatus: relatedMembership?.status ?? null,
+    };
+  });
+  const clubSettings: ClubSettingsDto = {
+    name: club.name,
+    description: club.description,
+    type: club.type,
+    visibility: club.visibility,
+    country: club.country,
+    department: club.department,
+    city: club.city,
+    discipline: club.discipline,
+    disciplines: club.disciplines,
+    accentColor: club.accentColor,
+    memberLimit: club.memberLimit,
+    latitude: club.latitude?.toString() ?? null,
+    longitude: club.longitude?.toString() ?? null,
+    avatarUrl: club.avatarKey ? `/api/v1/clubs/${club.id}/avatar` : null,
+  };
   return (
     <main className="space-y-6 pb-10">
       <Link
@@ -190,8 +273,17 @@ export default async function ClubPage({
       </Link>
       <header className="relative isolate overflow-hidden rounded-[34px] border border-white/10 bg-[radial-gradient(circle_at_85%_0%,rgba(34,211,238,.22),transparent_32%),radial-gradient(circle_at_5%_80%,rgba(163,230,53,.15),transparent_30%),linear-gradient(145deg,#111827,#070b12)] p-6 sm:p-9">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-end">
-          <span className="grid h-24 w-24 shrink-0 place-items-center rounded-[28px] border border-white/10 bg-white/[.07] text-cyan-300 shadow-xl">
+          <span className="relative grid h-24 w-24 shrink-0 place-items-center overflow-hidden rounded-[28px] border border-white/10 bg-white/[.07] text-cyan-300 shadow-xl">
             <Dumbbell size={42} />
+            {club.avatarKey ? (
+              <Image
+                src={`/api/v1/clubs/${club.id}/avatar`}
+                alt={`Foto de ${club.name}`}
+                fill
+                unoptimized
+                className="object-cover"
+              />
+            ) : null}
           </span>
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-black tracking-[.16em] text-cyan-300">
@@ -218,10 +310,49 @@ export default async function ClubPage({
                   {club.discipline}
                 </span>
               ) : null}
+              {club.disciplines
+                .filter((item) => item !== club.discipline)
+                .slice(0, 4)
+                .map((item) => (
+                  <span
+                    key={item}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-white/[.06] px-3 py-2"
+                  >
+                    <Flame size={14} />
+                    {item}
+                  </span>
+                ))}
             </div>
           </div>
         </div>
       </header>
+      {club.latitude && club.longitude ? (
+        <section className="flex flex-col gap-4 rounded-[28px] border border-lime-300/20 bg-gradient-to-r from-lime-300/[.08] to-cyan-300/[.05] p-5 sm:flex-row sm:items-center">
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-lime-300 text-slate-950">
+            <MapPin size={22} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-black tracking-[.14em] text-lime-300">
+              PUNTO DEL CLUB
+            </p>
+            <h2 className="mt-1 font-black">
+              {club.city ?? "Ubicación confirmada"}
+              {club.department ? `, ${club.department}` : ""}
+            </h2>
+            <p className="mt-1 text-xs text-slate-400">
+              Abre el punto guardado por el administrador del club.
+            </p>
+          </div>
+          <a
+            href={`https://www.google.com/maps?q=${club.latitude.toString()},${club.longitude.toString()}`}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-lime-300/30 px-4 py-3 text-xs font-black text-lime-300"
+          >
+            Ver en el mapa <ExternalLink size={15} />
+          </a>
+        </section>
+      ) : null}
       {mine?.status === "ACTIVE" ? (
         <ClubSocialHub
           clubId={club.id}
@@ -328,6 +459,9 @@ export default async function ClubPage({
             clubId={club.id}
             membership={mine ? { status: mine.status, role: mine.role } : null}
             requests={requests}
+            members={adminMembers}
+            friends={inviteFriends}
+            settings={clubSettings}
           />
         </aside>
       </div>

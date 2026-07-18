@@ -1,8 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Building2,
   CheckCircle2,
@@ -19,6 +20,7 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
+import { ClubCreateWizard } from "@/components/clubs/club-create-wizard";
 
 export type ClubSummary = {
   id: string;
@@ -28,11 +30,16 @@ export type ClubSummary = {
   type: string;
   visibility: string;
   city: string | null;
+  department: string | null;
   discipline: string | null;
+  disciplines: string[];
+  latitude: string | null;
+  longitude: string | null;
   accentColor: string;
   memberCount: number;
   membershipStatus: string | null;
   ownerName: string;
+  avatarUrl: string | null;
 };
 const accents: Record<string, string> = {
   lime: "from-lime-400/20 to-emerald-400/5 border-lime-400/20",
@@ -59,10 +66,15 @@ export function ClubDirectory({ initial }: { initial: ClubSummary[] }) {
   const [creating, setCreating] = useState(false);
   const [busy, setBusy] = useState<string>();
   const [message, setMessage] = useState("");
+  useEffect(() => {
+    if (!message) return;
+    const timeout = window.setTimeout(() => setMessage(""), 3200);
+    return () => window.clearTimeout(timeout);
+  }, [message]);
   const visible = useMemo(
     () =>
       initial.filter((club) =>
-        `${club.name} ${club.city ?? ""} ${club.discipline ?? ""}`
+        `${club.name} ${club.city ?? ""} ${club.department ?? ""} ${club.disciplines.join(" ")} ${club.discipline ?? ""}`
           .toLowerCase()
           .includes(query.toLowerCase().trim()),
       ),
@@ -136,7 +148,7 @@ export function ClubDirectory({ initial }: { initial: ClubSummary[] }) {
           >
             <div className="p-5">
               <div className="flex items-start justify-between gap-3">
-                <span className="grid h-12 w-12 place-items-center rounded-2xl bg-white/10 text-white">
+                <span className="relative grid h-12 w-12 place-items-center overflow-hidden rounded-2xl bg-white/10 text-white">
                   {club.type === "GYM" ? (
                     <Building2 />
                   ) : club.type === "CITY" ? (
@@ -146,6 +158,15 @@ export function ClubDirectory({ initial }: { initial: ClubSummary[] }) {
                   ) : (
                     <UsersRound />
                   )}
+                  {club.avatarUrl ? (
+                    <Image
+                      src={club.avatarUrl}
+                      alt={`Foto de ${club.name}`}
+                      fill
+                      unoptimized
+                      className="object-cover"
+                    />
+                  ) : null}
                 </span>
                 <span className="inline-flex items-center gap-1 rounded-full bg-black/25 px-2.5 py-1.5 text-[9px] font-black text-slate-300">
                   {club.visibility === "PUBLIC" ? (
@@ -180,6 +201,27 @@ export function ClubDirectory({ initial }: { initial: ClubSummary[] }) {
                     {club.discipline}
                   </span>
                 ) : null}
+                {club.disciplines
+                  .filter((item) => item !== club.discipline)
+                  .slice(0, 2)
+                  .map((item) => (
+                    <span
+                      key={item}
+                      className="rounded-full bg-black/25 px-3 py-1.5"
+                    >
+                      {item}
+                    </span>
+                  ))}
+                {club.latitude && club.longitude ? (
+                  <a
+                    href={`https://www.google.com/maps?q=${club.latitude},${club.longitude}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 rounded-full bg-lime-300/10 px-3 py-1.5 font-bold text-lime-300"
+                  >
+                    <MapPin size={11} /> Ver mapa
+                  </a>
+                ) : null}
               </div>
             </div>
             <div className="flex items-center gap-3 border-t border-white/[.06] p-4">
@@ -188,12 +230,15 @@ export function ClubDirectory({ initial }: { initial: ClubSummary[] }) {
                 <strong className="text-white">{club.memberCount}</strong>{" "}
                 integrantes
               </span>
-              {club.membershipStatus === "ACTIVE" ? (
+              {club.membershipStatus === "ACTIVE" ||
+              club.membershipStatus === "INVITED" ? (
                 <Link
                   href={`/clubes/${club.slug}`}
                   className="inline-flex items-center gap-1 rounded-xl bg-white px-4 py-2.5 text-sm font-black text-slate-950"
                 >
-                  Entrar
+                  {club.membershipStatus === "INVITED"
+                    ? "Ver invitación"
+                    : "Entrar"}
                   <ChevronRight size={15} />
                 </Link>
               ) : club.membershipStatus === "PENDING" ? (
@@ -227,7 +272,7 @@ export function ClubDirectory({ initial }: { initial: ClubSummary[] }) {
           </p>
         </div>
       ) : null}
-      {creating ? (
+      {false ? (
         <div className="fixed inset-0 z-[100] overflow-y-auto bg-black/80 p-3 backdrop-blur-xl sm:grid sm:place-items-center sm:p-6">
           <form
             onSubmit={create}
@@ -353,6 +398,13 @@ export function ClubDirectory({ initial }: { initial: ClubSummary[] }) {
             </div>
           </form>
         </div>
+      ) : null}
+      {creating ? (
+        <ClubCreateWizard
+          onClose={() => setCreating(false)}
+          notify={setMessage}
+          onCreated={(slug) => router.push(`/clubes/${slug}`)}
+        />
       ) : null}
       {message ? (
         <p

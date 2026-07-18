@@ -214,6 +214,7 @@ enum ClubRole {
 
 enum ClubMembershipStatus {
   PENDING
+  INVITED
   ACTIVE
   REJECTED
   LEFT
@@ -339,7 +340,13 @@ model Club {
   type        ClubType
   visibility  ClubVisibility   @default(PUBLIC)
   city        String?          @db.VarChar(120)
+  country     String           @default("Colombia") @db.VarChar(100)
+  department  String?          @db.VarChar(120)
   discipline  String?          @db.VarChar(120)
+  disciplines String[]         @default([])
+  latitude    Decimal?         @db.Decimal(10, 7)
+  longitude   Decimal?         @db.Decimal(10, 7)
+  avatarKey   String?          @map("avatar_key") @db.VarChar(500)
   accentColor String           @default("lime") @map("accent_color") @db.VarChar(20)
   memberLimit Int              @default(500) @map("member_limit")
   createdAt   DateTime         @default(now()) @map("created_at")
@@ -352,6 +359,7 @@ model Club {
   @@index([type, visibility, createdAt])
   @@index([city])
   @@index([discipline])
+  @@index([country, department, city])
   @@map("clubs")
 }
 

@@ -3,10 +3,13 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
+  Activity,
+  Bike,
   CalendarDays,
   CheckCircle2,
   Clock3,
   Dumbbell,
+  Flame,
   LocateFixed,
   MapPin,
   MessageSquareText,
@@ -200,18 +203,26 @@ export function ClubSocialHub({
             {showCreate ? (
               <div className="rounded-[28px] border border-lime-300/20 bg-gradient-to-br from-lime-300/[.07] to-cyan-300/[.04] p-4 sm:p-5">
                 <div className="flex items-center justify-between"><div><p className="text-[10px] font-black tracking-widest text-lime-300">NUEVO ENCUENTRO</p><h3 className="text-xl font-black">¿Entrenamos juntos?</h3></div><button onClick={() => setShowCreate(false)} className="grid h-9 w-9 place-items-center rounded-full bg-slate-950"><X size={17} /></button></div>
+                <p className="mt-2 text-xs text-slate-400">Elige una idea y personaliza solo lo necesario. Tu equipo recibirá la invitación en tiempo real.</p>
+                <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {[["Fuerza en equipo", Dumbbell, "Fuerza"], ["Cardio juntos", Activity, "Cardio"], ["Ruta en bici", Bike, "Ciclismo"], ["Desafío funcional", Flame, "Funcional"]] .map(([title, Icon, label]) => {
+                    const TrainingIcon = Icon as typeof Dumbbell;
+                    const selected = form.title === title;
+                    return <button type="button" key={String(title)} onClick={() => setForm({ ...form, title: String(title) })} className={`rounded-2xl border p-3 text-left ${selected ? "border-lime-300 bg-lime-300/10" : "border-slate-700 bg-slate-950/50"}`}><TrainingIcon size={18} className={selected ? "text-lime-300" : "text-slate-500"} /><strong className="mt-2 block text-xs">{String(label)}</strong></button>;
+                  })}
+                </div>
                 <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                  <label className="sm:col-span-2"><span className="mb-1.5 block text-xs font-bold">Nombre del plan</span><input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="input" /></label>
-                  <label><span className="mb-1.5 block text-xs font-bold">Día y hora</span><input type="datetime-local" value={form.startsAt} onChange={(e) => setForm({ ...form, startsAt: e.target.value })} className="input" /></label>
-                  <label><span className="mb-1.5 block text-xs font-bold">Duración</span><select value={form.durationMinutes} onChange={(e) => setForm({ ...form, durationMinutes: Number(e.target.value) })} className="input"><option value={45}>45 minutos</option><option value={60}>1 hora</option><option value={90}>1 h 30 min</option><option value={120}>2 horas</option></select></label>
-                  <label><span className="mb-1.5 block text-xs font-bold">Punto de encuentro</span><input value={form.placeName} onChange={(e) => setForm({ ...form, placeName: e.target.value })} placeholder="Recepción del gimnasio" className="input" /></label>
-                  <label><span className="mb-1.5 block text-xs font-bold">Cupos</span><input type="number" min={2} max={100} value={form.capacity} onChange={(e) => setForm({ ...form, capacity: Number(e.target.value) })} className="input" /></label>
-                  <label className="sm:col-span-2"><span className="mb-1.5 block text-xs font-bold">Dirección o referencia</span><input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Dirección, piso o indicación para llegar" className="input" /></label>
-                  <label className="sm:col-span-2"><span className="mb-1.5 block text-xs font-bold">Mensaje para el equipo</span><textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} className="input resize-none" placeholder="Qué van a entrenar, qué llevar…" /></label>
+                  <label className="sm:col-span-2"><span className="mb-1 block text-xs font-black">Nombre del encuentro</span><span className="mb-2 block text-[11px] text-slate-500">Así aparecerá en la invitación del equipo.</span><input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="input" /></label>
+                  <label className="sm:col-span-2"><span className="mb-1 block text-xs font-black">¿Cuándo?</span><span className="mb-2 block text-[11px] text-slate-500">Selecciona la fecha y hora exactas para confirmar asistencia.</span><input type="datetime-local" value={form.startsAt} onChange={(e) => setForm({ ...form, startsAt: e.target.value })} className="input" /></label>
+                  <fieldset className="sm:col-span-2"><legend className="text-xs font-black">Duración estimada</legend><div className="mt-2 grid grid-cols-4 gap-2">{[[45, "45 min"], [60, "1 hora"], [90, "1 h 30"], [120, "2 horas"]].map(([value, label]) => <button type="button" key={value} onClick={() => setForm({ ...form, durationMinutes: Number(value) })} className={`rounded-xl border px-2 py-3 text-[11px] font-black ${form.durationMinutes === value ? "border-cyan-300 bg-cyan-300/10 text-cyan-200" : "border-slate-700 text-slate-400"}`}>{label}</button>)}</div></fieldset>
+                  <fieldset className="sm:col-span-2"><legend className="text-xs font-black">Tamaño del grupo</legend><p className="mt-1 text-[11px] text-slate-500">Cuando se llenen los cupos, activaremos la lista de espera.</p><div className="mt-2 grid grid-cols-4 gap-2">{[[4, "Íntimo"], [8, "Equipo"], [12, "Crew"], [20, "Comunidad"]].map(([value, label]) => <button type="button" key={value} onClick={() => setForm({ ...form, capacity: Number(value) })} className={`rounded-xl border px-2 py-3 text-center ${form.capacity === value ? "border-lime-300 bg-lime-300/10" : "border-slate-700"}`}><strong className="block text-sm">{value}</strong><small className="text-[9px] text-slate-500">{label}</small></button>)}</div></fieldset>
+                  <fieldset className="sm:col-span-2"><legend className="text-xs font-black">¿Dónde se encuentran?</legend><div className="mt-2 flex gap-2 overflow-x-auto pb-1">{["Recepción del gimnasio", "Entrada principal", "Zona de pesas", "Punto en el mapa"].map((place) => <button type="button" key={place} onClick={() => setForm({ ...form, placeName: place })} className={`shrink-0 rounded-xl border px-3 py-2.5 text-[11px] font-bold ${form.placeName === place ? "border-orange-300 bg-orange-300/10 text-orange-200" : "border-slate-700 text-slate-400"}`}><MapPin size={13} className="mr-1 inline" />{place}</button>)}</div><input value={form.placeName} onChange={(e) => setForm({ ...form, placeName: e.target.value })} placeholder="O escribe un punto diferente…" className="input mt-2" /></fieldset>
+                  <label className="sm:col-span-2"><span className="mb-1 block text-xs font-black">Ayúdales a llegar</span><span className="mb-2 block text-[11px] text-slate-500">Dirección, piso o referencia visible solo para el club.</span><input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Ej. Carrera 15 # 90, segundo piso" className="input" /></label>
+                  <label className="sm:col-span-2"><span className="mb-1 block text-xs font-black">Mensaje para el equipo</span><span className="mb-2 block text-[11px] text-slate-500">Qué van a entrenar, qué deben llevar o qué nivel tendrá.</span><textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} className="input resize-none" placeholder="Hoy vamos por pierna; trae hidratación…" /></label>
                 </div>
                 <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                   <button onClick={locate} disabled={busy === "location"} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-cyan-300/20 py-3 text-xs font-black text-cyan-200"><LocateFixed size={16} /> {form.latitude ? "Ubicación agregada" : "Usar mi ubicación"}</button>
-                  <button onClick={() => void createTraining()} disabled={busy === "create"} className="btn flex-1 py-3">Publicar y avisar</button>
+                  <button onClick={() => void createTraining()} disabled={busy === "create" || !form.title.trim() || !form.placeName.trim()} className="btn flex-1 py-3 disabled:opacity-40">Publicar y avisar</button>
                 </div>
               </div>
             ) : null}
