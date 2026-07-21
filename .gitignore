@@ -8,3 +8,5 @@ coverage
 *.log
 .DS_Store
 packages/database/prisma/dev.db
+vendor/exercises-dataset/
+storage/exercise-media/

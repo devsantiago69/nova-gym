@@ -232,6 +232,19 @@ enum ClubSessionParticipantStatus {
   CANCELED
 }
 
+enum RoutineDifficulty {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum WorkoutSessionStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ABANDONED
+}
+
 model User {
   id                         String                      @id @default(uuid()) @db.Uuid
   email                      String                      @unique @db.VarChar(255)
@@ -281,9 +294,118 @@ model User {
   clubMemberships            ClubMembership[]
   clubSessionsCreated        ClubSession[]               @relation("ClubSessionCreator")
   clubSessionParticipations  ClubSessionParticipant[]
+  routines                   Routine[]
+  workoutSessions            WorkoutSession[]
 
   @@index([status])
   @@map("users")
+}
+
+model ExerciseCatalog {
+  id                 String            @id @db.VarChar(20)
+  name               String            @db.VarChar(180)
+  nameEs             String?           @map("name_es") @db.VarChar(180)
+  category           String            @db.VarChar(80)
+  bodyPart           String            @map("body_part") @db.VarChar(80)
+  equipment          String            @db.VarChar(100)
+  target             String            @db.VarChar(100)
+  muscleGroup        String?           @map("muscle_group") @db.VarChar(100)
+  secondaryMuscles   String[]          @map("secondary_muscles")
+  instructionsEs     String            @map("instructions_es") @db.Text
+  instructionStepsEs String[]          @map("instruction_steps_es")
+  imagePath          String?           @map("image_path") @db.VarChar(300)
+  gifPath            String?           @map("gif_path") @db.VarChar(300)
+  attribution        String?           @db.VarChar(300)
+  source             String            @default("hasaneyldrm/exercises-dataset") @db.VarChar(100)
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+  routineExercises   RoutineExercise[]
+
+  @@index([category])
+  @@index([bodyPart])
+  @@index([equipment])
+  @@index([target])
+  @@map("exercise_catalog")
+}
+
+model Routine {
+  id               String            @id @default(uuid()) @db.Uuid
+  slug             String            @unique @db.VarChar(120)
+  ownerId          String?           @map("owner_id") @db.Uuid
+  name             String            @db.VarChar(140)
+  description      String            @db.VarChar(600)
+  goal             String            @db.VarChar(100)
+  difficulty       RoutineDifficulty @default(BEGINNER)
+  estimatedMinutes Int               @map("estimated_minutes")
+  isFeatured       Boolean           @default(false) @map("is_featured")
+  isPublic         Boolean           @default(false) @map("is_public")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  owner            User?             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  exercises        RoutineExercise[]
+  workoutSessions  WorkoutSession[]
+
+  @@index([ownerId, createdAt])
+  @@index([isPublic, isFeatured])
+  @@map("routines")
+}
+
+model RoutineExercise {
+  id              String          @id @default(uuid()) @db.Uuid
+  routineId       String          @map("routine_id") @db.Uuid
+  exerciseId      String          @map("exercise_id") @db.VarChar(20)
+  position        Int
+  sets            Int             @default(3)
+  reps            Int?
+  durationSeconds Int?            @map("duration_seconds")
+  restSeconds     Int             @default(60) @map("rest_seconds")
+  notes           String?         @db.VarChar(300)
+  routine         Routine         @relation(fields: [routineId], references: [id], onDelete: Cascade)
+  exercise        ExerciseCatalog @relation(fields: [exerciseId], references: [id])
+  setLogs         WorkoutSetLog[]
+
+  @@unique([routineId, position])
+  @@index([routineId])
+  @@index([exerciseId])
+  @@map("routine_exercises")
+}
+
+model WorkoutSession {
+  id                   String               @id @default(uuid()) @db.Uuid
+  userId               String               @map("user_id") @db.Uuid
+  routineId            String               @map("routine_id") @db.Uuid
+  status               WorkoutSessionStatus @default(ACTIVE)
+  startedAt            DateTime             @default(now()) @map("started_at")
+  segmentStartedAt     DateTime?            @default(now()) @map("segment_started_at")
+  endedAt              DateTime?            @map("ended_at")
+  accumulatedSeconds   Int                  @default(0) @map("accumulated_seconds")
+  currentExerciseIndex Int                  @default(0) @map("current_exercise_index")
+  createdAt            DateTime             @default(now()) @map("created_at")
+  updatedAt            DateTime             @updatedAt @map("updated_at")
+  user                 User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  routine              Routine              @relation(fields: [routineId], references: [id], onDelete: Restrict)
+  setLogs              WorkoutSetLog[]
+
+  @@index([userId, createdAt])
+  @@index([routineId, createdAt])
+  @@map("workout_sessions")
+}
+
+model WorkoutSetLog {
+  id                String          @id @default(uuid()) @db.Uuid
+  sessionId         String          @map("session_id") @db.Uuid
+  routineExerciseId String          @map("routine_exercise_id") @db.Uuid
+  setNumber         Int             @map("set_number")
+  reps              Int?
+  weightKg          Decimal?        @map("weight_kg") @db.Decimal(6, 2)
+  durationSeconds   Int?            @map("duration_seconds")
+  completedAt       DateTime        @default(now()) @map("completed_at")
+  session           WorkoutSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  routineExercise   RoutineExercise @relation(fields: [routineExerciseId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, routineExerciseId, setNumber])
+  @@index([sessionId, completedAt])
+  @@map("workout_set_logs")
 }
 
 model Notification {

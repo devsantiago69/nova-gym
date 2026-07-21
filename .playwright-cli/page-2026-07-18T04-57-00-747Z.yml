@@ -1,0 +1,49 @@
+- generic [active] [ref=f2e1]:
+  - generic [ref=f2e2]:
+    - dialog [ref=f2e4]:
+      - button "Cerrar" [ref=f2e5]
+      - heading "Activa tu ubicación" [level=2] [ref=f2e13]
+      - paragraph [ref=f2e14]: Nova Gym la utiliza únicamente para verificar el lugar al iniciar y finalizar una asistencia. No hacemos seguimiento continuo.
+      - paragraph [ref=f2e19]: Tus coordenadas son privadas y solo un administrador autorizado puede revisarlas.
+      - paragraph [ref=f2e20]: El permiso está bloqueado. Pulsa el icono de ubicación junto a la dirección, selecciona Permitir y vuelve a intentarlo.
+      - button "Permitir ubicación" [ref=f2e21] [cursor=pointer]
+    - banner [ref=f2e22]:
+      - link "Nova Gym" [ref=f2e23] [cursor=pointer]:
+        - /url: /inicio
+      - generic [ref=f2e24]:
+        - button "Notificaciones" [ref=f2e26]
+        - button "Salir" [ref=f2e30]
+    - navigation [ref=f2e34]:
+      - link "Inicio" [ref=f2e35] [cursor=pointer]:
+        - /url: /inicio
+      - link "Asistencia" [ref=f2e40] [cursor=pointer]:
+        - /url: /asistencia
+      - link "Rutinas" [ref=f2e48] [cursor=pointer]:
+        - /url: /rutinas
+      - link "Retos" [ref=f2e52] [cursor=pointer]:
+        - /url: /retos
+      - link "Comunidad" [ref=f2e60] [cursor=pointer]:
+        - /url: /comunidad
+      - link "Perfil" [ref=f2e67] [cursor=pointer]:
+        - /url: /perfil
+    - main [ref=f2e72]:
+      - generic [ref=f2e73]:
+        - link "Volver a rutinas" [ref=f2e74] [cursor=pointer]:
+          - /url: /rutinas
+        - generic [ref=f2e77]:
+          - generic [ref=f2e86]:
+            - paragraph [ref=f2e87]: Biblioteca Nova
+            - heading "1.324 movimientos" [level=1] [ref=f2e88]
+            - paragraph [ref=f2e89]: Busca, aprende y encuentra tu ejercicio.
+          - textbox [ref=f2e94]:
+            - /placeholder: Nombre, músculo o equipo...
+          - generic [ref=f2e97]:
+            - button "Todo" [ref=f2e100]
+            - button "Core" [ref=f2e101]
+            - button "Pecho" [ref=f2e102]
+            - button "Espalda" [ref=f2e103]
+            - button "Piernas" [ref=f2e104]
+            - button "Brazos" [ref=f2e105]
+            - button "Hombros" [ref=f2e106]
+            - button "Cardio" [ref=f2e107]
+  - alert [ref=f2e108]

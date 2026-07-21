@@ -1,0 +1,130 @@
+- generic [active] [ref=e1]:
+  - alert [ref=e44]
+  - generic [ref=e45]:
+    - dialog [ref=e47]:
+      - heading "Activa tu ubicación" [level=2] [ref=e52]
+      - paragraph [ref=e53]: Nova Gym la utiliza únicamente para verificar el lugar al iniciar y finalizar una asistencia. No hacemos seguimiento continuo.
+      - paragraph [ref=e58]: Tus coordenadas son privadas y solo un administrador autorizado puede revisarlas.
+      - button "Permitir ubicación" [ref=e59] [cursor=pointer]
+    - banner [ref=e60]:
+      - link "Nova Gym" [ref=e61] [cursor=pointer]:
+        - /url: /inicio
+      - generic [ref=e62]:
+        - button "Notificaciones" [ref=e64]
+        - button "Salir" [ref=e68]
+    - navigation [ref=e72]:
+      - link "Inicio" [ref=e73] [cursor=pointer]:
+        - /url: /inicio
+      - link "Asistencia" [ref=e78] [cursor=pointer]:
+        - /url: /asistencia
+      - link "Rutinas" [ref=e86] [cursor=pointer]:
+        - /url: /rutinas
+      - link "Retos" [ref=e90] [cursor=pointer]:
+        - /url: /retos
+      - link "Comunidad" [ref=e98] [cursor=pointer]:
+        - /url: /comunidad
+      - link "Perfil" [ref=e105] [cursor=pointer]:
+        - /url: /perfil
+    - main [ref=e110]:
+      - generic [ref=e111]:
+        - generic [ref=e112]:
+          - generic [ref=e113]:
+            - paragraph [ref=e114]: TU CENTRO DE PROGRESO
+            - heading "Hola, Prueba" [level=1] [ref=e115]
+            - paragraph [ref=e118]: Tu constancia, tu equipo y tus retos en un solo lugar.
+          - link "Registrar asistencia" [ref=e119] [cursor=pointer]:
+            - /url: /asistencia
+        - generic [ref=e127]:
+          - generic [ref=e128]:
+            - generic [ref=e129]: TU DÍA ESTÁ LISTO
+            - heading "Haz que hoy cuente." [level=2] [ref=e132]
+            - paragraph [ref=e133]: Registra tu entrenamiento y comparte el avance con tu equipo.
+          - generic [ref=e134]:
+            - generic [ref=e135]:
+              - generic [ref=e136]: s
+              - generic [ref=e137]: "11"
+            - generic [ref=e138]:
+              - generic [ref=e139]: d
+              - generic [ref=e140]: "12"
+            - generic [ref=e141]:
+              - generic [ref=e142]: l
+              - generic [ref=e143]: "13"
+            - generic [ref=e144]:
+              - generic [ref=e145]: m
+              - generic [ref=e146]: "14"
+            - generic [ref=e147]:
+              - generic [ref=e148]: m
+              - generic [ref=e149]: "15"
+            - generic [ref=e150]:
+              - generic [ref=e151]: j
+              - generic [ref=e152]: "16"
+            - generic [ref=e153]:
+              - generic [ref=e154]: v
+              - generic [ref=e155]: "17"
+        - generic [ref=e156]:
+          - article [ref=e157]:
+            - strong [ref=e165]: "0"
+            - text: Puntos del mes
+          - article [ref=e166]:
+            - strong [ref=e170]: "0"
+            - text: Asistencias
+          - article [ref=e171]:
+            - strong [ref=e175]: 0 días
+            - text: Racha actual
+          - article [ref=e176]:
+            - strong [ref=e184]: "0"
+            - text: Retos activos
+        - generic [ref=e185]:
+          - generic [ref=e186]:
+            - generic [ref=e187]:
+              - generic [ref=e188]:
+                - paragraph [ref=e189]: PULSO DE TU EQUIPO
+                - heading "¿Quién entrenó hoy?" [level=2] [ref=e190]
+              - link "Ver comunidad" [ref=e191] [cursor=pointer]:
+                - /url: /comunidad
+            - generic [ref=e195]:
+              - generic [ref=e197]:
+                - generic [ref=e198]: Equipo activo hoy
+                - strong [ref=e199]: 0 de 0
+              - generic [ref=e201]:
+                - paragraph [ref=e206]: Tu equipo empieza aquí
+                - link "Encontrar amigos" [ref=e207] [cursor=pointer]:
+                  - /url: /comunidad
+          - generic [ref=e208]:
+            - generic [ref=e209]:
+              - generic [ref=e210]:
+                - paragraph [ref=e211]: TUS RETOS
+                - heading "La meta está cerca" [level=2] [ref=e212]
+              - link "Ver retos" [ref=e213] [cursor=pointer]:
+                - /url: /retos
+            - generic [ref=e218]:
+              - paragraph [ref=e223]: Activa tu primera meta
+              - link "Explorar retos" [ref=e224] [cursor=pointer]:
+                - /url: /retos
+        - generic [ref=e227]:
+          - generic [ref=e228]:
+            - generic [ref=e229]:
+              - paragraph [ref=e230]: PULSO NOVA
+              - heading "Actividad de tu círculo" [level=2] [ref=e231]
+              - paragraph [ref=e232]: Celebra los avances de quienes entrenan contigo.
+            - link "Ver todo →" [ref=e233] [cursor=pointer]:
+              - /url: /actividad
+          - generic [ref=e234]:
+            - heading "Tu feed está listo para comenzar" [level=2] [ref=e239]
+            - paragraph [ref=e240]: Los entrenamientos tuyos y de tus amigos aparecerán aquí.
+        - generic [ref=e241]:
+          - link [ref=e242] [cursor=pointer]:
+            - /url: /asistencia
+            - generic [ref=e250]:
+              - strong [ref=e251]: Registrar entrenamiento
+              - paragraph [ref=e252]: Suma a tu racha diaria
+          - link [ref=e255] [cursor=pointer]:
+            - /url: /retos
+            - generic [ref=e259]:
+              - strong [ref=e260]: Ver historias del equipo
+              - paragraph [ref=e261]: Valida esfuerzos privados
+          - link [ref=e264] [cursor=pointer]:
+            - /url: /comunidad
+            - generic [ref=e270]:
+              - strong [ref=e271]: Ampliar mi equipo
+              - paragraph [ref=e272]: Conecta y crea nuevos retos
