@@ -9,6 +9,7 @@ export const customChallengeSchema=z.object({
   targetIds:z.array(z.string().uuid()).max(3).default([]),
   challengeType:z.enum(["MOST_ATTENDANCES","FIRST_TO_TARGET","REACH_TARGET","STREAK","ACCUMULATED_AMOUNT"]).default("REACH_TARGET"),
   durationDays:z.coerce.number().int().min(1).max(365),
+  restDaysAllowed:z.coerce.number().int().min(0).max(14).default(2),
   targetValue:z.coerce.number().int().min(1).max(10000),
   targetUnit:z.string().trim().toLowerCase().regex(/^[a-z0-9áéíóúüñ _-]{2,50}$/i),
   evidenceType:z.enum(["NONE","CHECK_IN","ONE_PHOTO","TWO_PHOTOS","TEXT","CHECKLIST","NUMERIC_VALUE","PHOTO_AND_VALUE"]),
@@ -30,6 +31,7 @@ export const customChallengeSchema=z.object({
   if(value.mode==="SOCIAL"&&value.targetIds.length===0)context.addIssue({code:"custom",path:["targetIds"],message:"Selecciona al menos un amigo"});
   if(value.evidenceType==="CHECKLIST"&&value.checklistItems.length===0)context.addIssue({code:"custom",path:["checklistItems"],message:"Agrega al menos una actividad"});
   if(value.numericMaximum<value.numericMinimum)context.addIssue({code:"custom",path:["numericMaximum"],message:"El máximo debe ser mayor o igual al mínimo"});
+  if(value.restDaysAllowed>=value.durationDays)context.addIssue({code:"custom",path:["restDaysAllowed"],message:"Los descansos deben ser menores que la duración del reto"});
 });
 
 export type CustomChallengeInput=z.infer<typeof customChallengeSchema>;

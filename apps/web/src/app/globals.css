@@ -15,6 +15,18 @@ body {
   color: var(--foreground);
   font-family: Arial, sans-serif;
   min-height: 100vh;
+  min-height: 100dvh;
+  overscroll-behavior-y: none;
+}
+.nova-app {
+  min-height: 100dvh;
+  overflow-x: clip;
+}
+.nova-mobile-nav {
+  position: fixed !important;
+  right: 0 !important;
+  left: 0 !important;
+  contain: layout;
 }
 button,
 input,

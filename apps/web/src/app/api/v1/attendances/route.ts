@@ -6,6 +6,7 @@ import { fail, ok } from "@/lib/api-response";
 import { putPrivateObject } from "@/lib/private-storage";
 import { normalizeAttendanceImage } from "@/modules/attendance/image";
 import { activePlanEntitlements, canStoreBytes } from "@/modules/plans/entitlements";
+import { canUseAttendancePhotoSource, isAttendancePhotoSource } from "@/modules/plans/attendance-photo-policy";
 
 function localDate(timezone: string) { return new Date(`${new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date())}T00:00:00.000Z`); }
 function coordinates(form: FormData) { const latitude=Number(form.get("latitude"));const longitude=Number(form.get("longitude"));const accuracy=Number(form.get("accuracy"));if(!Number.isFinite(latitude)||latitude < -90||latitude > 90||!Number.isFinite(longitude)||longitude < -180||longitude > 180)throw new DomainError("LOCATION_REQUIRED","Debes permitir una ubicación válida");return {latitude,longitude,accuracy:Number.isFinite(accuracy)?accuracy:null}; }
@@ -24,8 +25,15 @@ export async function POST(request: Request) {
   try {
     const form = await request.formData(); const file = form.get("photo"); const location=coordinates(form);
     if (!(file instanceof File)) throw new DomainError("PHOTO_REQUIRED", "La fotografía inicial es obligatoria");
+    const photoSource = form.get("photoSource");
+    if (!isAttendancePhotoSource(photoSource)) throw new DomainError("PHOTO_SOURCE_REQUIRED", "Selecciona cómo deseas tomar la fotografía");
+    const plan = await activePlanEntitlements(session.user.id);
+    if (!plan) return fail("PLAN_REQUIRED", "Necesitas un plan activo para registrar evidencias", 403);
+    if (!canUseAttendancePhotoSource(plan.code, photoSource)) return fail("PLAN_UPGRADE_REQUIRED", "Tu plan Free permite registrar evidencias únicamente con la cámara", 403);
     const profile = await prisma.userProfile.findUniqueOrThrow({ where: { userId: session.user.id } });
     const date = localDate(profile.timezone);
+    const restDay = await prisma.challengeRestDay.findFirst({ where: { userId: session.user.id, localDate: date }, select: { id: true } });
+    if (restDay) return fail("REST_DAY_ACTIVE", "Hoy elegiste descansar. Cancela el descanso si deseas entrenar.", 409);
     const existing = await prisma.attendance.findUnique({ where: { userId_localDate: { userId: session.user.id, localDate: date } }, select: { status: true } });
     if (existing) return fail("ATTENDANCE_ALREADY_EXISTS", existing.status === "COMPLETED" ? "Ya completaste el entrenamiento de hoy. Vuelve mañana para continuar tu racha." : "Ya tienes un registro de entrenamiento para hoy", 409);
     const image = await normalizeAttendanceImage(file); const storage = await canStoreBytes(session.user.id, image.size);

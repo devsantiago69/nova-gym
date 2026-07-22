@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarDays,
   Camera,
@@ -11,18 +11,22 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock3,
+  Crown,
   ExternalLink,
   Eye,
   Flame,
+  FolderOpen,
   ImageIcon,
   ImagePlus,
   MapPin,
+  Moon,
   Navigation,
   PartyPopper,
   RefreshCw,
   ShieldCheck,
   Timer,
   Trophy,
+  Undo2,
   X,
 } from "lucide-react";
 import {
@@ -42,6 +46,7 @@ type Attendance = AttendanceStoryData;
 const pad = (value: number) => String(value).padStart(2, "0");
 const dateKey = (year: number, month: number, day: number) =>
   `${year}-${pad(month + 1)}-${pad(day)}`;
+const APP_TRACKING_START_DATE = "2026-07-13";
 
 function locationQuality(accuracy: number) {
   if (accuracy <= 30) return "Precisión excelente";
@@ -61,11 +66,21 @@ export function AttendanceManager({
   todayKey,
   locale,
   storyDurationSeconds,
+  canChooseFromDevice,
+  planName,
+  initialRestDays,
+  restDaysRemaining,
+  hasActiveChallenges,
 }: {
   initial: Attendance[];
   todayKey: string;
   locale: "es" | "en";
   storyDurationSeconds: number;
+  canChooseFromDevice: boolean;
+  planName: string;
+  initialRestDays: string[];
+  restDaysRemaining: number;
+  hasActiveChallenges: boolean;
 }) {
   const dateLocale = locale === "en" ? "en-US" : "es-CO";
   const weekDays =
@@ -74,8 +89,11 @@ export function AttendanceManager({
       : ["L", "M", "M", "J", "V", "S", "D"];
   const [rows] = useState(initial);
   const [message, setMessage] = useState("");
+  const [restBusy, setRestBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState<string>();
+  const [selectedFile, setSelectedFile] = useState<File>();
+  const [photoSource, setPhotoSource] = useState<"camera" | "gallery">();
   const [fileName, setFileName] = useState("");
   const [inputKey, setInputKey] = useState(0);
   const [currentLocation, setCurrentLocation] = useState<BrowserLocation>();
@@ -85,6 +103,7 @@ export function AttendanceManager({
   const [locationTesting, setLocationTesting] = useState(false);
   const [locationDiagnostic, setLocationDiagnostic] = useState("");
   const [selectedAttendance, setSelectedAttendance] = useState<Attendance>();
+  const historyCarouselRef = useRef<HTMLDivElement>(null);
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const today = new Date();
     return new Date(today.getFullYear(), today.getMonth(), 1);
@@ -98,6 +117,8 @@ export function AttendanceManager({
   const todayCompleted =
     todayAttendance?.status === "COMPLETED" ? todayAttendance : undefined;
   const completed = rows.filter((row) => row.status === "COMPLETED");
+  const restDaySet = useMemo(() => new Set(initialRestDays), [initialRestDays]);
+  const todayRest = restDaySet.has(todayKey);
   const points = rows
     .flatMap((row) => row.pointMovements)
     .reduce((total, point) => total + point.amount, 0);
@@ -126,6 +147,88 @@ export function AttendanceManager({
     );
     return total + (row?.status === "COMPLETED" ? 1 : 0);
   }, 0);
+  const monthRestCount = calendarCells.reduce<number>((total, day) => {
+    if (!day) return total;
+    const key = dateKey(
+      calendarMonth.getFullYear(),
+      calendarMonth.getMonth(),
+      day,
+    );
+    return total + (restDaySet.has(key) ? 1 : 0);
+  }, 0);
+  const monthMissedCount = calendarCells.reduce<number>((total, day) => {
+    if (!day) return total;
+    const key = dateKey(
+      calendarMonth.getFullYear(),
+      calendarMonth.getMonth(),
+      day,
+    );
+    return total +
+      (key >= APP_TRACKING_START_DATE &&
+      key < todayKey &&
+      !attendanceByDate.has(key) &&
+      !restDaySet.has(key)
+        ? 1
+        : 0);
+  }, 0);
+  const historyMonthKey = `${calendarMonth.getFullYear()}-${pad(calendarMonth.getMonth() + 1)}`;
+  const historyRows = useMemo(
+    () => rows.filter((row) => row.localDate.slice(0, 7) === historyMonthKey),
+    [historyMonthKey, rows],
+  );
+  const historyMonths = useMemo(() => {
+    const keys = new Set(rows.map((row) => row.localDate.slice(0, 7)));
+    keys.add(historyMonthKey);
+    return [...keys]
+      .sort((left, right) => right.localeCompare(left))
+      .map((key) => ({
+        key,
+        label: new Date(`${key}-01T00:00:00.000Z`).toLocaleDateString(
+          dateLocale,
+          { timeZone: "UTC", month: "long", year: "numeric" },
+        ),
+      }));
+  }, [dateLocale, historyMonthKey, rows]);
+
+  function selectHistoryMonth(value: string) {
+    const [yearValue = "", monthValue = ""] = value.split("-");
+    const year = Number(yearValue);
+    const month = Number(monthValue);
+    if (!Number.isInteger(year) || !Number.isInteger(month)) return;
+    setCalendarMonth(new Date(year, month - 1, 1));
+    historyCarouselRef.current?.scrollTo({ left: 0, behavior: "smooth" });
+  }
+
+  function scrollHistory(direction: -1 | 1) {
+    historyCarouselRef.current?.scrollBy({
+      left: direction * Math.min(window.innerWidth * 0.82, 360),
+      behavior: "smooth",
+    });
+  }
+
+  async function toggleRest(enable: boolean) {
+    setRestBusy(true);
+    setMessage(enable ? "Activando tu recuperación…" : "Cancelando descanso…");
+    try {
+      const response = await fetch("/api/v1/rest-days", {
+        method: enable ? "POST" : "DELETE",
+      });
+      const result = (await response.json()) as {
+        message: string;
+        errors?: Array<{ message: string }>;
+      };
+      setMessage(
+        response.ok
+          ? result.message
+          : (result.errors?.[0]?.message ?? result.message),
+      );
+      if (response.ok) location.reload();
+    } catch {
+      setMessage("No pudimos actualizar tu descanso. Intenta nuevamente.");
+    } finally {
+      setRestBusy(false);
+    }
+  }
 
   useEffect(
     () => () => {
@@ -172,10 +275,20 @@ export function AttendanceManager({
     }
   }
 
-  function choosePhoto(event: React.ChangeEvent<HTMLInputElement>) {
+  function choosePhoto(
+    event: React.ChangeEvent<HTMLInputElement>,
+    source: "camera" | "gallery",
+  ) {
+    if (source === "gallery" && !canChooseFromDevice) {
+      setMessage("Elegir archivos está disponible al mejorar tu plan.");
+      event.target.value = "";
+      return;
+    }
     const file = event.target.files?.[0];
     if (preview) URL.revokeObjectURL(preview);
     setPreview(file ? URL.createObjectURL(file) : undefined);
+    setSelectedFile(file);
+    setPhotoSource(file ? source : undefined);
     setFileName(file?.name ?? "");
     setMessage("");
   }
@@ -183,12 +296,18 @@ export function AttendanceManager({
   function clearPhoto() {
     if (preview) URL.revokeObjectURL(preview);
     setPreview(undefined);
+    setSelectedFile(undefined);
+    setPhotoSource(undefined);
     setFileName("");
     setInputKey((key) => key + 1);
   }
 
   async function send(event: React.FormEvent<HTMLFormElement>, url: string) {
     event.preventDefault();
+    if (!selectedFile || !photoSource) {
+      setMessage("Toma una fotografía antes de continuar.");
+      return;
+    }
     const form = event.currentTarget;
     setBusy(true);
     setMessage("Preparando tu registro…");
@@ -206,6 +325,8 @@ export function AttendanceManager({
         setCurrentLocation(position);
       }
       const data = new FormData(form);
+      data.set("photo", selectedFile, selectedFile.name);
+      data.set("photoSource", photoSource);
       data.set("latitude", String(position.latitude));
       data.set("longitude", String(position.longitude));
       data.set("accuracy", String(position.accuracy));
@@ -259,11 +380,21 @@ export function AttendanceManager({
           <p className="text-xs muted sm:text-sm">Entrenamientos</p>
         </article>
         <article
-          className={`card p-4 sm:p-5 ${todayCompleted ? "border-lime-400/30 bg-lime-400/[.04]" : ""}`}
+          className={`card p-4 sm:p-5 ${todayCompleted ? "border-lime-400/30 bg-lime-400/[.04]" : todayRest ? "border-cyan-300/30 bg-cyan-300/[.04]" : ""}`}
         >
-          <Clock3 className="h-5 w-5 text-lime-400 sm:h-6 sm:w-6" />
+          {todayRest ? (
+            <Moon className="h-5 w-5 text-cyan-300 sm:h-6 sm:w-6" />
+          ) : (
+            <Clock3 className="h-5 w-5 text-lime-400 sm:h-6 sm:w-6" />
+          )}
           <p className="mt-3 text-xl font-black sm:text-3xl">
-            {todayCompleted ? "Cumplido" : active ? "Activo" : "Listo"}
+            {todayCompleted
+              ? "Cumplido"
+              : todayRest
+                ? "Descanso"
+                : active
+                  ? "Activo"
+                  : "Listo"}
           </p>
           <p className="text-xs muted sm:text-sm">Estado de hoy</p>
         </article>
@@ -388,6 +519,55 @@ export function AttendanceManager({
             </div>
           </div>
         </section>
+      ) : todayRest ? (
+        <section className="relative isolate overflow-hidden rounded-[32px] border border-cyan-300/25 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,.2),transparent_34%),linear-gradient(135deg,rgba(15,23,42,.98),rgba(8,47,73,.72),rgba(2,6,23,.98))] p-7 shadow-[0_28px_90px_rgba(6,182,212,.12)] sm:p-10">
+          <div className="pointer-events-none absolute -left-20 -top-24 -z-10 h-64 w-64 rounded-full bg-blue-500/15 blur-3xl" />
+          <div className="flex flex-col gap-7 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex max-w-2xl items-start gap-4">
+              <div className="grid h-16 w-16 shrink-0 place-items-center rounded-3xl border border-cyan-200/20 bg-cyan-300/15 text-cyan-200 shadow-[0_0_32px_rgba(34,211,238,.16)]">
+                <Moon size={30} />
+              </div>
+              <div>
+                <span className="text-[11px] font-black tracking-[.16em] text-cyan-300">
+                  RECUPERACIÓN ACTIVA
+                </span>
+                <h2 className="mt-2 text-3xl font-black sm:text-4xl">
+                  Hoy también estás avanzando.
+                </h2>
+                <p className="mt-3 leading-relaxed text-slate-300">
+                  Marcaste este día para recuperar energía. El descanso quedó
+                  aplicado a todos tus retos activos y tu calendario lo guardará
+                  en azul.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              disabled={restBusy}
+              onClick={() => toggleRest(false)}
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl border border-cyan-200/25 bg-slate-950/45 px-5 py-3.5 font-black text-cyan-100 transition hover:border-cyan-200/60 disabled:opacity-60"
+            >
+              <Undo2 size={18} />
+              {restBusy ? "Actualizando…" : "Cancelar descanso"}
+            </button>
+          </div>
+          <div className="mt-7 flex flex-wrap gap-3 text-xs font-bold text-slate-300">
+            <span className="rounded-full border border-cyan-300/15 bg-cyan-300/10 px-3 py-2">
+              {restDaysRemaining} descansos disponibles después de hoy
+            </span>
+            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2">
+              No se permiten días consecutivos
+            </span>
+          </div>
+          {message && (
+            <p
+              role="status"
+              className="mt-5 rounded-2xl border border-cyan-300/15 bg-slate-950/50 p-4 text-sm text-cyan-100"
+            >
+              {message}
+            </p>
+          )}
+        </section>
       ) : todayAttendance && !active ? (
         <section className="card border-orange-400/20 bg-gradient-to-br from-slate-900 to-orange-950/20 p-7 text-center sm:p-10">
           <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-orange-400/10">
@@ -440,6 +620,39 @@ export function AttendanceManager({
                     : "Una foto, tu ubicación y listo. Tu evidencia siempre será privada."}
                 </p>
               </div>
+
+              {!active && hasActiveChallenges && (
+                <div className="relative overflow-hidden rounded-3xl border border-cyan-300/20 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,.16),transparent_42%),rgba(8,47,73,.18)] p-5">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-start gap-4">
+                      <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-cyan-300/15 text-cyan-200">
+                        <Moon size={23} />
+                      </div>
+                      <div>
+                        <strong className="text-lg">¿Tu cuerpo pide pausa?</strong>
+                        <p className="mt-1 max-w-lg text-sm leading-relaxed text-slate-300">
+                          Usa un día de recuperación para todos tus retos. Tienes
+                          <b className="text-cyan-200"> {restDaysRemaining} disponibles</b>
+                          ; no pueden ser consecutivos.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={restBusy || restDaysRemaining <= 0}
+                      onClick={() => toggleRest(true)}
+                      className="inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl border border-cyan-200/25 bg-cyan-300/10 px-4 py-3 font-black text-cyan-100 transition hover:bg-cyan-300/20 disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                      <Moon size={17} />
+                      {restBusy
+                        ? "Guardando…"
+                        : restDaysRemaining > 0
+                          ? "Marcar descanso"
+                          : "Descansos agotados"}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div
                 className={`rounded-2xl border p-5 ${currentLocation ? "border-lime-500/40 bg-gradient-to-br from-lime-400/10 to-emerald-500/5" : "border-amber-500/30 bg-amber-400/5"}`}
@@ -542,7 +755,11 @@ export function AttendanceManager({
                   <span
                     className={`rounded-full px-2.5 py-1 text-[10px] font-black ${preview ? "bg-lime-400/10 text-lime-300" : "bg-slate-800 text-slate-400"}`}
                   >
-                    {preview ? "LISTA" : "PENDIENTE"}
+                    {preview
+                      ? photoSource === "gallery"
+                        ? "ARCHIVO LISTO"
+                        : "CÁMARA LISTA"
+                      : "PENDIENTE"}
                   </span>
                 </div>
 
@@ -580,31 +797,84 @@ export function AttendanceManager({
                   </div>
                 )}
 
-                <label
-                  className={`flex cursor-pointer items-center justify-center gap-3 rounded-2xl border border-dashed p-4 font-bold transition sm:p-5 ${preview ? "border-slate-700 bg-slate-950/40 hover:border-lime-500" : "border-lime-500/60 bg-lime-400/[.03] hover:bg-lime-400/[.07]"}`}
-                >
-                  <Camera className="text-lime-400" />
-                  <span>
-                    {preview
-                      ? "Tomar o elegir otra foto"
-                      : "Abrir cámara o galería"}
-                  </span>
-                  <input
-                    key={inputKey}
-                    name="photo"
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
-                    capture="environment"
-                    required
-                    className="sr-only"
-                    onChange={choosePhoto}
-                  />
-                </label>
+                {canChooseFromDevice ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className={`group cursor-pointer rounded-2xl border p-4 transition sm:p-5 ${photoSource === "camera" ? "border-lime-400 bg-lime-400/10" : "border-slate-700 bg-slate-950/50 hover:border-lime-400/50"}`}>
+                      <span className={`grid h-11 w-11 place-items-center rounded-2xl ${photoSource === "camera" ? "bg-lime-400 text-slate-950" : "bg-lime-400/10 text-lime-300"}`}>
+                        <Camera size={22} />
+                      </span>
+                      <strong className="mt-3 block text-sm sm:text-base">
+                        {preview && photoSource === "camera" ? "Volver a tomar" : "Tomar foto"}
+                      </strong>
+                      <small className="mt-1 block text-[11px] leading-4 text-slate-400">
+                        Abre la cámara del dispositivo
+                      </small>
+                      <input
+                        key={`camera-${inputKey}`}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                        capture="environment"
+                        className="sr-only"
+                        onChange={(event) => choosePhoto(event, "camera")}
+                      />
+                    </label>
+                    <label className={`group cursor-pointer rounded-2xl border p-4 transition sm:p-5 ${photoSource === "gallery" ? "border-cyan-300 bg-cyan-300/10" : "border-slate-700 bg-slate-950/50 hover:border-cyan-300/50"}`}>
+                      <span className={`grid h-11 w-11 place-items-center rounded-2xl ${photoSource === "gallery" ? "bg-cyan-300 text-slate-950" : "bg-cyan-300/10 text-cyan-300"}`}>
+                        <FolderOpen size={22} />
+                      </span>
+                      <strong className="mt-3 block text-sm sm:text-base">
+                        {preview && photoSource === "gallery" ? "Cambiar archivo" : "Elegir del equipo"}
+                      </strong>
+                      <small className="mt-1 block text-[11px] leading-4 text-slate-400">
+                        Galería, fotos o archivos
+                      </small>
+                      <input
+                        key={`gallery-${inputKey}`}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                        className="sr-only"
+                        onChange={(event) => choosePhoto(event, "gallery")}
+                      />
+                    </label>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <label className={`flex cursor-pointer items-center gap-4 rounded-2xl border border-dashed p-4 transition sm:p-5 ${preview ? "border-slate-700 bg-slate-950/40 hover:border-lime-500" : "border-lime-500/60 bg-lime-400/[.03] hover:bg-lime-400/[.07]"}`}>
+                      <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-lime-400 text-slate-950">
+                        <Camera size={23} />
+                      </span>
+                      <span className="min-w-0">
+                        <strong className="block">
+                          {preview ? "Volver a tomar la foto" : "Abrir cámara"}
+                        </strong>
+                        <small className="mt-1 block text-slate-400">
+                          Captura tu evidencia en este momento
+                        </small>
+                      </span>
+                      <input
+                        key={`camera-${inputKey}`}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                        capture="environment"
+                        className="sr-only"
+                        onChange={(event) => choosePhoto(event, "camera")}
+                      />
+                    </label>
+                    <Link href="/planes" className="flex items-center gap-3 rounded-2xl border border-violet-400/20 bg-gradient-to-r from-violet-400/10 to-cyan-400/5 p-3.5 transition hover:border-violet-300/40">
+                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-violet-300/10 text-violet-200"><Crown size={19} /></span>
+                      <span className="min-w-0 flex-1">
+                        <strong className="block text-xs text-violet-100">Galería disponible en planes superiores</strong>
+                        <small className="mt-0.5 block text-[10px] text-slate-400">Plan actual: {planName} · conoce las opciones</small>
+                      </span>
+                      <ChevronRight size={17} className="text-violet-200" />
+                    </Link>
+                  </div>
+                )}
               </section>
 
               <button
                 className="btn w-full py-4 text-base shadow-[0_12px_35px_rgba(163,230,53,.12)]"
-                disabled={busy || !preview}
+                disabled={busy || !selectedFile}
               >
                 {busy
                   ? "Procesando…"
@@ -664,7 +934,7 @@ export function AttendanceManager({
       )}
 
       <div className="grid items-start gap-6 xl:grid-cols-[.85fr_1.15fr]">
-        <section className="card p-5 sm:p-6">
+        <section className="relative overflow-hidden rounded-[28px] border border-white/[.08] bg-[radial-gradient(circle_at_top_left,rgba(163,230,53,.1),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,.09),transparent_38%),rgba(10,18,32,.78)] p-5 shadow-[0_24px_70px_rgba(0,0,0,.24)] backdrop-blur-xl sm:p-6">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-xs font-bold text-lime-400">MI CALENDARIO</p>
@@ -724,135 +994,228 @@ export function AttendanceManager({
                 day,
               );
               const attendance = attendanceByDate.get(key);
-              const isToday =
-                key ===
-                dateKey(
-                  new Date().getFullYear(),
-                  new Date().getMonth(),
-                  new Date().getDate(),
-                );
+              const isToday = key === todayKey;
+              const isRestDay = restDaySet.has(key);
+              const isMissed =
+                key >= APP_TRACKING_START_DATE &&
+                key < todayKey &&
+                !attendance &&
+                !isRestDay;
               return (
                 <div
                   key={key}
                   title={
                     attendance
                       ? statusLabel(attendance.status)
-                      : "Sin entrenamiento"
+                      : isRestDay
+                        ? "Día de descanso"
+                        : isMissed
+                          ? "No entrenaste"
+                          : key < APP_TRACKING_START_DATE
+                            ? "Antes del inicio de Nova Gym"
+                            : "Día disponible"
                   }
-                  className={`relative grid aspect-square place-items-center rounded-xl text-sm font-bold ${attendance?.status === "COMPLETED" ? "bg-lime-400 text-slate-950 shadow-[0_0_20px_rgba(163,230,53,.18)]" : attendance?.status === "IN_PROGRESS" ? "bg-orange-400 text-slate-950" : isToday ? "border border-lime-500/60 text-lime-300" : "text-slate-400 hover:bg-slate-800/60"}`}
+                  className={`relative grid aspect-square place-items-center rounded-xl border text-sm font-black transition ${attendance?.status === "COMPLETED" ? "border-lime-300/60 bg-gradient-to-br from-lime-300 to-lime-500 text-slate-950 shadow-[0_0_22px_rgba(163,230,53,.2)]" : attendance?.status === "IN_PROGRESS" ? "border-orange-300/50 bg-orange-400 text-slate-950" : isRestDay ? "border-cyan-300/45 bg-gradient-to-br from-cyan-300/25 to-blue-500/20 text-cyan-100 shadow-[0_0_20px_rgba(34,211,238,.1)]" : isMissed ? "border-rose-400/30 bg-gradient-to-br from-rose-500/18 to-red-950/25 text-rose-200" : isToday ? "border-lime-500/60 bg-lime-300/[.05] text-lime-300" : "border-transparent text-slate-500 hover:bg-slate-800/60"}`}
                 >
                   {day}
-                  {attendance && (
+                  {(attendance || isRestDay || isMissed) && (
                     <span className="absolute bottom-1 h-1 w-1 rounded-full bg-current opacity-60" />
                   )}
                 </div>
               );
             })}
           </div>
-          <div className="mt-5 flex items-center justify-between rounded-xl bg-slate-950 p-4">
-            <span className="inline-flex items-center gap-2 text-sm muted">
-              <CalendarDays size={18} className="text-lime-400" />
-              Entrenamientos este mes
-            </span>
-            <strong className="text-xl text-lime-400">
-              {monthAttendanceCount}
-            </strong>
+          <div className="mt-5 grid grid-cols-3 gap-2">
+            <div className="rounded-2xl border border-lime-300/10 bg-lime-300/[.06] p-3 text-center">
+              <strong className="block text-xl text-lime-300">{monthAttendanceCount}</strong>
+              <span className="text-[10px] font-bold text-slate-400 sm:text-xs">Entrenaste</span>
+            </div>
+            <div className="rounded-2xl border border-cyan-300/10 bg-cyan-300/[.06] p-3 text-center">
+              <strong className="block text-xl text-cyan-200">{monthRestCount}</strong>
+              <span className="text-[10px] font-bold text-slate-400 sm:text-xs">Descansos</span>
+            </div>
+            <div className="rounded-2xl border border-rose-300/10 bg-rose-300/[.05] p-3 text-center">
+              <strong className="block text-xl text-rose-200">{monthMissedCount}</strong>
+              <span className="text-[10px] font-bold text-slate-400 sm:text-xs">Sin entrenar</span>
+            </div>
+          </div>
+          <div className="mt-3 rounded-2xl border border-white/[.06] bg-slate-950/55 p-4">
+            <p className="flex items-center gap-2 text-xs font-black text-slate-200">
+              <CalendarDays size={16} className="text-lime-300" />
+              Así se lee tu recorrido
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-[11px] font-bold text-slate-400">
+              <span className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-lime-400" /> Entrenaste</span>
+              <span className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-cyan-300" /> Recuperación</span>
+              <span className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-rose-400" /> No entrenaste</span>
+              <span className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-slate-700" /> Antes del 13 jul.</span>
+            </div>
+            <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
+              El seguimiento comenzó el 13 de julio de 2026; los días anteriores no afectan tu progreso.
+            </p>
           </div>
         </section>
 
-        <section>
-          <div className="mb-4">
-            <p className="text-xs font-bold text-lime-400">TU RECORRIDO</p>
-            <h2 className="mt-1 text-2xl font-black">
-              Historial de entrenamientos
-            </h2>
+        <section className="min-w-0 overflow-hidden rounded-[28px] border border-white/[.07] bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,.09),transparent_38%),rgba(10,18,32,.72)] p-5 shadow-[0_24px_70px_rgba(0,0,0,.2)] backdrop-blur-xl sm:p-6">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold tracking-[.12em] text-lime-400">
+                TU RECORRIDO
+              </p>
+              <h2 className="mt-1 text-2xl font-black">
+                Historial de entrenamientos
+              </h2>
+              <p className="mt-1 text-sm muted">
+                Desliza para revivir cada sesión del mes.
+              </p>
+            </div>
+            <label className="relative min-w-[190px]">
+              <span className="sr-only">Filtrar historial por mes</span>
+              <CalendarDays className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-cyan-300" size={17} />
+              <select
+                value={historyMonthKey}
+                onChange={(event) => selectHistoryMonth(event.target.value)}
+                className="w-full appearance-none rounded-2xl border border-cyan-300/20 bg-slate-950/80 py-3 pl-10 pr-10 text-sm font-black capitalize text-white outline-none transition focus:border-cyan-300"
+              >
+                {historyMonths.map((month) => (
+                  <option key={month.key} value={month.key}>
+                    {month.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronRight className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-slate-500" size={16} />
+            </label>
           </div>
-          <div className="space-y-3">
-            {rows.length === 0 ? (
-              <div className="card p-8 text-center">
-                <CalendarDays className="mx-auto h-10 w-10 text-slate-600" />
-                <p className="mt-4 font-bold">Tu recorrido comienza hoy</p>
-                <p className="mt-1 text-sm muted">
-                  Cuando completes un entrenamiento aparecerá aquí y en tu
-                  calendario.
-                </p>
-              </div>
-            ) : (
-              rows.map((row) => {
+
+          <div className="mt-5 flex items-center justify-between">
+            <span className="rounded-full border border-white/[.07] bg-white/[.035] px-3 py-1.5 text-[10px] font-black text-slate-300">
+              {historyRows.length} {historyRows.length === 1 ? "SESIÓN" : "SESIONES"}
+            </span>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => scrollHistory(-1)} aria-label="Entrenamiento anterior" className="grid h-10 w-10 place-items-center rounded-full border border-slate-700 bg-slate-950/70 text-slate-300 transition hover:border-lime-300 hover:text-lime-300">
+                <ChevronLeft size={19} />
+              </button>
+              <button type="button" onClick={() => scrollHistory(1)} aria-label="Entrenamiento siguiente" className="grid h-10 w-10 place-items-center rounded-full border border-slate-700 bg-slate-950/70 text-slate-300 transition hover:border-lime-300 hover:text-lime-300">
+                <ChevronRight size={19} />
+              </button>
+            </div>
+          </div>
+
+          {historyRows.length === 0 ? (
+            <div className="mt-4 rounded-[24px] border border-dashed border-slate-700 bg-slate-950/35 p-8 text-center">
+              <CalendarDays className="mx-auto h-10 w-10 text-slate-600" />
+              <p className="mt-4 font-bold">No hay sesiones en este mes</p>
+              <p className="mt-1 text-sm muted">
+                Elige otro mes o completa tu próximo entrenamiento.
+              </p>
+            </div>
+          ) : (
+            <div
+              ref={historyCarouselRef}
+              className="-mx-5 mt-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-2 pr-12 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:-mx-6 sm:px-6"
+            >
+              {historyRows.map((row) => {
                 const date = new Date(row.localDate);
+                const cover = row.photos[0];
+                const earnedPoints = row.pointMovements.reduce(
+                  (total, movement) => total + movement.amount,
+                  0,
+                );
                 return (
-                  <article
-                    key={row.id}
-                    className="card grid gap-4 p-4 sm:grid-cols-[72px_1fr_auto] sm:items-center sm:p-5"
-                  >
-                    <div className="flex items-center gap-3 sm:block sm:text-center">
-                      <div className="grid h-14 w-14 place-items-center rounded-2xl bg-lime-400/10 sm:mx-auto">
-                        <span className="text-2xl font-black text-lime-400">
-                          {date.getUTCDate()}
-                        </span>
-                      </div>
-                      <span className="text-sm font-bold uppercase text-slate-400 sm:mt-1 sm:block">
-                        {date
-                          .toLocaleDateString(dateLocale, {
-                            timeZone: "UTC",
-                            month: "short",
-                          })
-                          .replace(".", "")}
-                      </span>
-                    </div>
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <strong className="text-lg capitalize">
-                          {date.toLocaleDateString(dateLocale, {
-                            timeZone: "UTC",
-                            weekday: "long",
-                          })}
-                        </strong>
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-xs font-bold ${row.status === "COMPLETED" ? "bg-lime-400/10 text-lime-300" : "bg-orange-400/10 text-orange-300"}`}
-                        >
-                          {statusLabel(row.status)}
-                        </span>
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2 text-sm muted">
-                        <span className="inline-flex items-center gap-1.5">
-                          <Clock3 size={15} />
-                          {new Date(row.startedAt).toLocaleTimeString(
-                            dateLocale,
-                            { hour: "numeric", minute: "2-digit" },
-                          )}
-                          {row.finishedAt
-                            ? ` – ${new Date(row.finishedAt).toLocaleTimeString(dateLocale, { hour: "numeric", minute: "2-digit" })}`
-                            : ""}
-                        </span>
-                        {row.durationMinutes !== null && (
-                          <span className="inline-flex items-center gap-1.5">
-                            <Timer size={15} />
-                            {row.durationMinutes} minutos
-                          </span>
+                  <article key={row.id} className="group w-[79vw] max-w-[320px] shrink-0 snap-center overflow-hidden rounded-[26px] border border-slate-700/80 bg-slate-950/80 shadow-[0_18px_45px_rgba(0,0,0,.24)]">
+                    <button type="button" onClick={() => setSelectedAttendance(row)} className="block w-full text-left">
+                      <div className="relative aspect-[4/3] overflow-hidden bg-[radial-gradient(circle_at_30%_20%,rgba(163,230,53,.18),transparent_35%),#08101e]">
+                        {cover ? (
+                          <ProtectedImage src={`/api/v1/attendance-photos/${cover.id}`} alt={`Entrenamiento del ${date.getUTCDate()}`} className="object-cover transition duration-500 group-hover:scale-[1.03]" />
+                        ) : (
+                          <div className="absolute inset-0 grid place-items-center"><ImageIcon className="h-12 w-12 text-slate-700" /></div>
                         )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-black/25" />
+                        <span className={`absolute left-3 top-3 rounded-full border px-3 py-1.5 text-[9px] font-black backdrop-blur-xl ${row.status === "COMPLETED" ? "border-lime-300/20 bg-lime-300/15 text-lime-200" : "border-orange-300/20 bg-orange-300/15 text-orange-200"}`}>
+                          {statusLabel(row.status).toUpperCase()}
+                        </span>
+                        <div className="absolute inset-x-0 bottom-0 p-4">
+                          <p className="text-xs font-bold capitalize text-cyan-200">
+                            {date.toLocaleDateString(dateLocale, { timeZone: "UTC", weekday: "long" })}
+                          </p>
+                          <h3 className="mt-0.5 text-xl font-black capitalize">
+                            {date.toLocaleDateString(dateLocale, { timeZone: "UTC", day: "numeric", month: "long" })}
+                          </h3>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex flex-wrap gap-2 sm:justify-end">
-                      <span className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-3 py-2 text-xs text-slate-400">
-                        <ImageIcon size={15} />
-                        {row.photos.length}{" "}
-                        {row.photos.length === 1 ? "foto" : "fotos"}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedAttendance(row)}
-                        className="inline-flex items-center gap-2 rounded-xl border border-lime-400/40 bg-lime-400/[.06] px-3 py-2 text-sm font-black text-lime-300 transition hover:bg-lime-400 hover:text-slate-950"
-                      >
-                        <Eye size={16} />
-                        Ver detalles
-                      </button>
-                    </div>
+                      <div className="p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-[9px] font-black tracking-[.14em] text-cyan-300">
+                              RESUMEN DE SESIÓN
+                            </p>
+                            <p className="mt-1 inline-flex items-center gap-1.5 text-xs font-bold text-slate-300">
+                              <Clock3 size={14} className="text-cyan-300" />
+                              {new Date(row.startedAt).toLocaleTimeString(
+                                dateLocale,
+                                { hour: "numeric", minute: "2-digit" },
+                              )}
+                              <span className="text-slate-600">—</span>
+                              {row.finishedAt
+                                ? new Date(row.finishedAt).toLocaleTimeString(
+                                    dateLocale,
+                                    { hour: "numeric", minute: "2-digit" },
+                                  )
+                                : "En curso"}
+                            </p>
+                          </div>
+                          {(row.startLatitude !== null ||
+                            row.endLatitude !== null) && (
+                            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-lime-300/15 bg-lime-300/10 text-lime-300" title="Ubicación verificada">
+                              <MapPin size={16} />
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="mt-4 grid grid-cols-3 gap-2">
+                          <span className="rounded-xl border border-white/[.05] bg-white/[.035] p-2.5">
+                            <Timer size={14} className="text-lime-300" />
+                            <strong className="mt-1 block text-sm">
+                              {row.durationMinutes ?? 0} min
+                            </strong>
+                            <small className="text-[9px] text-slate-500">
+                              duración
+                            </small>
+                          </span>
+                          <span className="rounded-xl border border-white/[.05] bg-white/[.035] p-2.5">
+                            <ImageIcon size={14} className="text-cyan-300" />
+                            <strong className="mt-1 block text-sm">
+                              {row.photos.length}
+                            </strong>
+                            <small className="text-[9px] text-slate-500">
+                              evidencias
+                            </small>
+                          </span>
+                          <span className="rounded-xl border border-white/[.05] bg-white/[.035] p-2.5">
+                            <Trophy size={14} className="text-orange-300" />
+                            <strong className="mt-1 block text-sm">
+                              +{earnedPoints}
+                            </strong>
+                            <small className="text-[9px] text-slate-500">
+                              puntos
+                            </small>
+                          </span>
+                        </div>
+
+                        <span className="mt-4 flex items-center justify-between rounded-2xl border border-lime-300/20 bg-lime-300/[.07] px-3 py-2.5 font-black text-lime-300 transition group-hover:bg-lime-300 group-hover:text-slate-950">
+                          <span className="inline-flex items-center gap-2">
+                            <Eye size={17} />
+                            Ver detalles
+                          </span>
+                          <ChevronRight size={18} />
+                        </span>
+                      </div>
+                    </button>
                   </article>
                 );
-              })
-            )}
-          </div>
+              })}
+            </div>
+          )}
         </section>
       </div>
       {selectedAttendance && (

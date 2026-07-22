@@ -48,6 +48,7 @@ const defaultData: ChallengeDraftData = {
   description: "",
   challengeType: "REACH_TARGET",
   durationDays: 30,
+  restDaysAllowed: 2,
   targetValue: 20,
   targetUnit: "sesiones",
   evidenceType: "TEXT",
@@ -541,6 +542,23 @@ export function ChallengeCreator({
                   />
                 </Field>
                 <Field
+                  label="Días de descanso"
+                  hint="Cada participante podrá usarlos durante el reto. Nova no permite descansos en días consecutivos."
+                >
+                  <div className="grid grid-cols-5 gap-2">
+                    {[0, 1, 2, 3, 4].map((days) => (
+                      <button
+                        type="button"
+                        key={days}
+                        onClick={() => update("restDaysAllowed", days)}
+                        className={`rounded-2xl border py-3 text-sm font-black transition ${data.restDaysAllowed === days ? "border-cyan-300 bg-cyan-300 text-slate-950" : "border-slate-700 bg-slate-950 text-slate-400"}`}
+                      >
+                        {days}
+                      </button>
+                    ))}
+                  </div>
+                </Field>
+                <Field
                   label="¿Qué vas a medir?"
                   hint="Esta unidad aparecerá en tu progreso, registros, resultados y estadísticas."
                 >
@@ -862,7 +880,7 @@ export function ChallengeCreator({
                   <Preview
                     icon={<CalendarDays />}
                     label="Frecuencia"
-                    value={`${data.validWeekdays.length} días válidos`}
+                    value={`${data.validWeekdays.length} días válidos · ${data.restDaysAllowed} descansos`}
                   />
                   <Preview
                     icon={<Sparkles />}

@@ -4,6 +4,8 @@ import { AttendanceManager } from "@/components/attendance/attendance-manager";
 import { StoriesBar, type StoryItem } from "@/components/stories/stories-bar";
 import { authOptions } from "@/lib/auth";
 import { resolveAppLocale } from "@/lib/i18n/locale";
+import { activePlanEntitlements } from "@/modules/plans/entitlements";
+import { canChooseAttendancePhotoFromDevice } from "@/modules/plans/attendance-photo-policy";
 
 function dateInTimezone(timezone: string) {
   return new Intl.DateTimeFormat("en-CA", {
@@ -17,7 +19,7 @@ function dateInTimezone(timezone: string) {
 export default async function Page() {
   const session = await getServerSession(authOptions);
   const userId = session!.user.id;
-  const [rows, profile, sharedEvents, currentUser] = await Promise.all([
+  const [rows, profile, sharedEvents, currentUser, activePlan, restDays, activeChallengeMemberships] = await Promise.all([
     prisma.attendance.findMany({
       where: { userId },
       include: {
@@ -86,6 +88,29 @@ export default async function Page() {
       where: { id: userId },
       select: { username: true },
     }),
+    activePlanEntitlements(userId),
+    prisma.challengeRestDay.findMany({
+      where: { userId },
+      select: { localDate: true },
+      distinct: ["localDate"],
+      orderBy: { localDate: "desc" },
+      take: 370,
+    }),
+    prisma.challengeParticipant.findMany({
+      where: {
+        userId,
+        acceptedAt: { not: null },
+        challenge: { status: "ACTIVE", startsAt: { lte: new Date() }, endsAt: { gte: new Date() } },
+      },
+      select: {
+        challenge: {
+          select: {
+            restDaysAllowed: true,
+            restDays: { where: { userId }, select: { id: true } },
+          },
+        },
+      },
+    }),
   ]);
   const timezone = profile?.timezone ?? "America/Bogota";
   const locale = resolveAppLocale({
@@ -152,6 +177,11 @@ export default async function Page() {
       <AttendanceManager
         locale={locale}
         storyDurationSeconds={storyDurationSeconds}
+        canChooseFromDevice={canChooseAttendancePhotoFromDevice(activePlan?.code)}
+        planName={activePlan?.name ?? "Free"}
+        initialRestDays={restDays.map((item) => item.localDate.toISOString().slice(0, 10))}
+        restDaysRemaining={activeChallengeMemberships.length > 0 ? Math.min(...activeChallengeMemberships.map((item) => Math.max(0, item.challenge.restDaysAllowed - item.challenge.restDays.length))) : 0}
+        hasActiveChallenges={activeChallengeMemberships.length > 0}
         todayKey={dateInTimezone(timezone)}
         initial={rows.map((row) => ({
           id: row.id,

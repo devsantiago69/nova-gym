@@ -19,17 +19,29 @@ export default async function AppLayout({
   if (!s) redirect("/login");
   if (s.user.status === "PENDING_PASSWORD_CHANGE")
     redirect("/cambiar-contrasena");
-  const profile = await prisma.userProfile.findUnique({
-    where: { userId: s.user.id },
-    select: {
-      firstName: true,
-      lastName: true,
-      locale: true,
-      localeAuto: true,
-      timezone: true,
-      fontFamily: true,
-    },
-  });
+  const [profile, subscription] = await Promise.all([
+    prisma.userProfile.findUnique({
+      where: { userId: s.user.id },
+      select: {
+        firstName: true,
+        lastName: true,
+        locale: true,
+        localeAuto: true,
+        timezone: true,
+        fontFamily: true,
+      },
+    }),
+    prisma.subscription.findFirst({
+      where: {
+        userId: s.user.id,
+        status: "ACTIVE",
+        OR: [{ endsAt: null }, { endsAt: { gte: new Date() } }],
+        plan: { status: "ACTIVE" },
+      },
+      select: { plan: { select: { code: true } } },
+      orderBy: { startsAt: "desc" },
+    }),
+  ]);
   const locale = resolveAppLocale(profile ?? {});
   const displayName =
     `${profile?.firstName ?? ""} ${profile?.lastName ?? ""}`.trim() ||
@@ -42,7 +54,7 @@ export default async function AppLayout({
     >
       <LocaleRuntime locale={locale} />
       <LocationConsent />
-      <header className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 p-4 sm:p-5">
+      <header className="sticky top-0 z-40 mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 border-b border-white/[.06] bg-[#070b12]/78 p-4 shadow-[0_12px_35px_rgba(0,0,0,.12)] backdrop-blur-2xl sm:p-5 md:rounded-b-[24px]">
         <Link href="/inicio" className="text-xl font-black text-lime-400">
           {appConfig.name}
         </Link>
@@ -60,8 +72,11 @@ export default async function AppLayout({
           <LogoutButton locale={locale} />
         </div>
       </header>
-      <BottomNav locale={locale} />
-      <main className="mx-auto max-w-6xl px-4 pb-24">{children}</main>
+      <BottomNav
+        locale={locale}
+        premium={Boolean(subscription && subscription.plan.code.toUpperCase() !== "FREE")}
+      />
+      <main className="mx-auto max-w-6xl px-4 pb-32 md:pb-24">{children}</main>
     </div>
   );
 }

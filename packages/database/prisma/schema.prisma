@@ -287,6 +287,7 @@ model User {
   challengeResults           ChallengeResultRecord[]
   personalChallengeTemplates UserChallengeTemplate[]
   challengeDrafts            ChallengeDraft[]
+  challengeRestDays          ChallengeRestDay[]
   socialPosts                SocialPost[]
   socialReactions            SocialReaction[]
   socialComments             SocialComment[]
@@ -739,6 +740,7 @@ model Challenge {
   description         String                      @default("") @db.VarChar(1000)
   modality            ChallengeModality           @default(HEAD_TO_HEAD)
   durationDays        Int                         @default(1) @map("duration_days")
+  restDaysAllowed     Int                         @default(2) @map("rest_days_allowed")
   timezone            String                      @default("America/Bogota") @db.VarChar(80)
   targetValue         Int                         @default(1) @map("target_value")
   targetUnit          String                      @default("attendances") @map("target_unit") @db.VarChar(50)
@@ -766,6 +768,7 @@ model Challenge {
   personalTemplates   UserChallengeTemplate[]
   results             ChallengeResultRecord[]
   socialPosts         SocialPost[]
+  restDays            ChallengeRestDay[]
 
   @@index([status, startsAt, endsAt])
   @@index([templateId])
@@ -843,6 +846,20 @@ model ChallengeParticipant {
   @@unique([challengeId, userId])
   @@index([userId])
   @@map("challenge_participants")
+}
+
+model ChallengeRestDay {
+  id          String    @id @default(uuid()) @db.Uuid
+  challengeId String    @map("challenge_id") @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  localDate   DateTime  @map("local_date") @db.Date
+  createdAt   DateTime  @default(now()) @map("created_at")
+  challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([challengeId, userId, localDate])
+  @@index([userId, localDate])
+  @@map("challenge_rest_days")
 }
 
 model ChallengeScoreEvent {

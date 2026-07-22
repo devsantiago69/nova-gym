@@ -33,7 +33,55 @@ export default async function Page() {
       },
     },
   });
-  const fitness = await publicFitnessStats(user.id);
+  const timezone = user.profile?.timezone ?? "America/Bogota";
+  const todayKey = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  const today = new Date(`${todayKey}T00:00:00.000Z`);
+  const timelineStart = new Date(
+    Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 5, 1),
+  );
+  const [fitness, timelineAttendances, timelineRestDays] = await Promise.all([
+    publicFitnessStats(user.id),
+    prisma.attendance.findMany({
+      where: {
+        userId: user.id,
+        status: "COMPLETED",
+        invalidatedAt: null,
+        localDate: { gte: timelineStart },
+      },
+      select: { localDate: true },
+      orderBy: { localDate: "asc" },
+    }),
+    prisma.challengeRestDay.findMany({
+      where: { userId: user.id, localDate: { gte: timelineStart } },
+      select: { localDate: true },
+      distinct: ["localDate"],
+      orderBy: { localDate: "asc" },
+    }),
+  ]);
+  const attendanceDates = timelineAttendances.map((row) =>
+    row.localDate.toISOString().slice(0, 10),
+  );
+  const restDates = timelineRestDays.map((row) =>
+    row.localDate.toISOString().slice(0, 10),
+  );
+  const monthlyBars = Array.from({ length: 6 }, (_, index) => {
+    const date = new Date(
+      Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - (5 - index), 1),
+    );
+    const key = date.toISOString().slice(0, 7);
+    return {
+      key,
+      label: date
+        .toLocaleDateString("es-CO", { month: "short", timeZone: "UTC" })
+        .replace(".", ""),
+      value: attendanceDates.filter((item) => item.startsWith(key)).length,
+    };
+  });
   const name =
     `${user.profile?.firstName ?? ""} ${user.profile?.lastName ?? ""}`.trim() ||
     user.username;
@@ -165,6 +213,13 @@ export default async function Page() {
         qrSvg={qrSvg}
         shareUrl={shareUrl}
         stats={{ name, username: user.username, ...fitness }}
+        progress={{
+          todayKey,
+          trackingStartDate: "2026-07-13",
+          attendanceDates,
+          restDates,
+          monthlyBars,
+        }}
       />
       <div id="ajustes" className="scroll-mt-24">
         <ProfileAccountCenter

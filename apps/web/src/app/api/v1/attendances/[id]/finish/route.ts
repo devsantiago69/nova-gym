@@ -6,7 +6,8 @@ import { fail, ok } from "@/lib/api-response";
 import { putPrivateObject } from "@/lib/private-storage";
 import { normalizeAttendanceImage } from "@/modules/attendance/image";
 import { syncChallengeProgressInTransaction } from "@/modules/challenges/sync-progress";
-import { canStoreBytes } from "@/modules/plans/entitlements";
+import { activePlanEntitlements, canStoreBytes } from "@/modules/plans/entitlements";
+import { canUseAttendancePhotoSource, isAttendancePhotoSource } from "@/modules/plans/attendance-photo-policy";
 import {
   createNotifications,
   userDisplayName,
@@ -36,6 +37,25 @@ export async function POST(
       throw new DomainError(
         "PHOTO_REQUIRED",
         "La fotografía final es obligatoria",
+      );
+    const photoSource = form.get("photoSource");
+    if (!isAttendancePhotoSource(photoSource))
+      throw new DomainError(
+        "PHOTO_SOURCE_REQUIRED",
+        "Selecciona cómo deseas tomar la fotografía",
+      );
+    const plan = await activePlanEntitlements(session.user.id);
+    if (!plan)
+      return fail(
+        "PLAN_REQUIRED",
+        "Necesitas un plan activo para guardar evidencias",
+        403,
+      );
+    if (!canUseAttendancePhotoSource(plan.code, photoSource))
+      return fail(
+        "PLAN_UPGRADE_REQUIRED",
+        "Tu plan Free permite registrar evidencias únicamente con la cámara",
+        403,
       );
     const latitude = Number(form.get("latitude"));
     const longitude = Number(form.get("longitude"));
