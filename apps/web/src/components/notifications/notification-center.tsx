@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Bell, BellRing, CheckCheck, Dumbbell, Flame, Trophy, UserPlus, Users, X } from "lucide-react";
 import type { NotificationDto } from "@/modules/notifications/service";
@@ -78,11 +79,17 @@ export function NotificationCenter() {
   }, [sync]);
 
   useEffect(() => {
-    const outside = (event: MouseEvent) => {
-      if (open && panelRef.current && !panelRef.current.contains(event.target as Node)) setOpen(false);
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const closeWithEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
     };
-    document.addEventListener("mousedown", outside);
-    return () => document.removeEventListener("mousedown", outside);
+    window.addEventListener("keydown", closeWithEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeWithEscape);
+    };
   }, [open]);
 
   async function markRead(notification: NotificationDto) {
@@ -104,33 +111,177 @@ export function NotificationCenter() {
     await fetch("/api/v1/notifications", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "read_all" }) });
   }
 
-  return <div ref={panelRef} className="relative">
+  const panel = open
+    ? createPortal(
+        <div
+          className="fixed inset-0 z-[120] flex items-end justify-center bg-black/72 backdrop-blur-md sm:items-start sm:justify-end sm:p-5"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setOpen(false);
+          }}
+        >
+          <section
+            ref={panelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Centro de notificaciones"
+            className="flex h-[min(86dvh,720px)] w-full flex-col overflow-hidden rounded-t-[2rem] border border-slate-700/80 bg-[radial-gradient(circle_at_top_left,rgba(163,230,53,.12),transparent_30%),#080f1d] shadow-2xl shadow-black/70 sm:w-[27rem] sm:rounded-[2rem]"
+          >
+            <header className="shrink-0 border-b border-white/[.07] bg-slate-950/35 p-5 backdrop-blur-xl">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[.18em] text-lime-400">
+                    En tiempo real
+                  </p>
+                  <h2 className="mt-1 text-2xl font-black text-white">
+                    Notificaciones
+                  </h2>
+                  <p className="mt-2 flex items-center gap-2 text-xs text-slate-400">
+                    <span
+                      className={`h-2 w-2 rounded-full ${connected ? "bg-emerald-400 shadow-[0_0_10px_#34d399]" : "bg-amber-400"}`}
+                    />
+                    {connected
+                      ? "Conectado en vivo"
+                      : "Sincronización automática"}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  aria-label="Cerrar notificaciones"
+                  className="grid h-10 w-10 place-items-center rounded-full border border-white/10 bg-slate-950/60 text-slate-300 transition hover:border-lime-300/40 hover:text-white"
+                >
+                  <X size={19} />
+                </button>
+              </div>
+              <div className="mt-4 flex items-center justify-between rounded-2xl border border-white/[.06] bg-black/20 px-4 py-3">
+                <span className="text-xs font-bold text-slate-400">
+                  {unread
+                    ? `${unread} ${unread === 1 ? "nueva" : "nuevas"}`
+                    : "Estás al día"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void markAll()}
+                  disabled={!unread}
+                  className="inline-flex items-center gap-2 text-xs font-black text-lime-300 transition disabled:text-slate-600"
+                >
+                  <CheckCheck size={15} />
+                  Marcar todo leído
+                </button>
+              </div>
+            </header>
+
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 [scrollbar-color:#334155_transparent]">
+              {loading ? (
+                <div className="space-y-2">
+                  {[1, 2, 3, 4].map((key) => (
+                    <div
+                      key={key}
+                      className="h-24 animate-pulse rounded-2xl bg-slate-800/70"
+                    />
+                  ))}
+                </div>
+              ) : items.length === 0 ? (
+                <div className="grid min-h-full place-items-center px-8 py-14 text-center">
+                  <div>
+                    <div className="mx-auto grid h-16 w-16 place-items-center rounded-3xl border border-lime-300/15 bg-lime-300/[.07] text-lime-300">
+                      <Bell size={28} />
+                    </div>
+                    <h3 className="mt-4 text-lg font-black text-white">
+                      Todo tranquilo por aquí
+                    </h3>
+                    <p className="mt-2 text-sm leading-relaxed text-slate-400">
+                      Las invitaciones, entrenamientos y logros de tu equipo
+                      aparecerán aquí.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                items.map((notification) => {
+                  const Icon = iconByType[notification.type] ?? Bell;
+                  return (
+                    <button
+                      key={notification.id}
+                      type="button"
+                      onClick={() => void markRead(notification)}
+                      className={`group mb-2 flex w-full items-start gap-3 rounded-2xl border p-3.5 text-left transition ${notification.readAt ? "border-white/[.04] bg-slate-950/35 hover:border-slate-600" : "border-lime-400/20 bg-lime-400/[.07] hover:bg-lime-400/[.11]"}`}
+                    >
+                      <span
+                        className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl ${notification.readAt ? "bg-slate-800 text-slate-400" : "bg-lime-400 text-slate-950 shadow-[0_0_20px_rgba(163,230,53,.18)]"}`}
+                      >
+                        <Icon size={20} />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-start justify-between gap-2">
+                          <strong className="line-clamp-1 text-sm font-black text-white">
+                            {notification.title}
+                          </strong>
+                          <span className="shrink-0 text-[10px] text-slate-500">
+                            {relativeTime(notification.createdAt)}
+                          </span>
+                        </span>
+                        <span className="mt-1 line-clamp-2 block text-xs leading-relaxed text-slate-400">
+                          {notification.body}
+                        </span>
+                      </span>
+                      {!notification.readAt && (
+                        <span className="mt-5 h-2 w-2 shrink-0 rounded-full bg-lime-400 shadow-[0_0_9px_#a3e635]" />
+                      )}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+            <footer className="shrink-0 border-t border-white/[.06] bg-slate-950/55 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 text-center text-[10px] text-slate-500">
+              Desliza únicamente esta lista para revisar tu actividad.
+            </footer>
+          </section>
+        </div>,
+        document.body,
+      )
+    : null;
+
+  const toastPortal = toast
+    ? createPortal(
+        <div className="fixed inset-x-3 top-[max(.75rem,env(safe-area-inset-top))] z-[140] mx-auto flex max-w-sm items-start gap-3 rounded-2xl border border-lime-400/30 bg-[#0a1322]/95 p-3 shadow-2xl shadow-black/60 backdrop-blur-xl sm:inset-x-auto sm:right-5 sm:w-96">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-lime-400 text-slate-950">
+            <BellRing size={20} />
+          </span>
+          <button
+            type="button"
+            onClick={() => void markRead(toast)}
+            className="min-w-0 flex-1 text-left"
+          >
+            <span className="block text-[10px] font-black uppercase tracking-[.17em] text-lime-400">
+              Nueva actividad
+            </span>
+            <strong className="mt-0.5 block truncate text-sm text-white">
+              {toast.title}
+            </strong>
+            <span className="mt-1 line-clamp-2 block text-xs text-slate-400">
+              {toast.body}
+            </span>
+          </button>
+          <button
+            type="button"
+            aria-label="Cerrar"
+            onClick={() => setToast(null)}
+            className="text-slate-500 hover:text-white"
+          >
+            <X size={16} />
+          </button>
+        </div>,
+        document.body,
+      )
+    : null;
+
+  return <div className="relative">
     <button type="button" onClick={() => setOpen((value) => !value)} aria-label={`Notificaciones${unread ? `, ${unread} sin leer` : ""}`} className="group relative grid h-10 w-10 place-items-center rounded-xl border border-slate-700 bg-slate-950/60 text-slate-300 transition hover:border-lime-400/60 hover:bg-lime-400/10 hover:text-lime-300">
       {unread ? <BellRing size={19} className="transition group-hover:rotate-12"/> : <Bell size={19}/>} 
       {unread > 0 && <span className="absolute -right-1.5 -top-1.5 grid min-h-5 min-w-5 place-items-center rounded-full border-2 border-slate-950 bg-lime-400 px-1 text-[10px] font-black leading-none text-slate-950 shadow-[0_0_18px_rgba(163,230,53,.55)]">{unread > 99 ? "99+" : unread}</span>}
     </button>
 
-    {open && <div className="fixed inset-x-3 bottom-20 z-50 max-h-[72vh] overflow-hidden rounded-[1.75rem] border border-slate-700/80 bg-[#080f1d]/95 shadow-2xl shadow-black/60 backdrop-blur-xl sm:absolute sm:inset-auto sm:right-0 sm:top-12 sm:h-[34rem] sm:max-h-[75vh] sm:w-[25rem]">
-      <div className="border-b border-slate-800 bg-gradient-to-br from-lime-400/10 via-transparent to-cyan-400/5 p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div><p className="text-[11px] font-black uppercase tracking-[.18em] text-lime-400">En tiempo real</p><h2 className="mt-1 text-xl font-black text-white">Tu actividad</h2><p className="mt-1 flex items-center gap-2 text-xs text-slate-400"><span className={`h-2 w-2 rounded-full ${connected ? "bg-emerald-400 shadow-[0_0_10px_#34d399]" : "bg-amber-400"}`}/>{connected ? "Conectado en vivo" : "Sincronización automática"}</p></div>
-          <div className="flex items-center gap-1"><button type="button" onClick={() => void markAll()} disabled={!unread} className="rounded-lg px-2.5 py-2 text-xs font-bold text-slate-300 transition hover:bg-white/5 hover:text-lime-300 disabled:opacity-40">Leer todo</button><button type="button" onClick={() => setOpen(false)} className="grid h-9 w-9 place-items-center rounded-xl text-slate-400 hover:bg-white/5 hover:text-white"><X size={18}/></button></div>
-        </div>
-      </div>
-      <div className="h-[calc(100%-7.3rem)] overflow-y-auto p-2">
-        {loading ? <div className="space-y-2 p-2">{[1,2,3].map((key)=><div key={key} className="h-20 animate-pulse rounded-2xl bg-slate-800/70"/>)}</div> : items.length === 0 ? <div className="grid h-72 place-items-center px-8 text-center"><div><div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl border border-slate-700 bg-slate-900 text-lime-400"><Bell size={28}/></div><h3 className="mt-4 font-black text-white">Todo tranquilo por aquí</h3><p className="mt-2 text-sm text-slate-400">Las invitaciones, avances de tus amigos y logros aparecerán aquí.</p></div></div> : items.map((notification) => {
-          const Icon = iconByType[notification.type] ?? Bell;
-          return <button key={notification.id} type="button" onClick={() => void markRead(notification)} className={`group mb-1 flex w-full items-start gap-3 rounded-2xl border p-3 text-left transition ${notification.readAt ? "border-transparent hover:border-slate-700 hover:bg-slate-900/70" : "border-lime-400/20 bg-lime-400/[.06] hover:bg-lime-400/[.1]"}`}>
-            <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl ${notification.readAt ? "bg-slate-800 text-slate-400" : "bg-lime-400 text-slate-950 shadow-[0_0_20px_rgba(163,230,53,.18)]"}`}><Icon size={20}/></span>
-            <span className="min-w-0 flex-1"><span className="flex items-start justify-between gap-2"><strong className="line-clamp-1 text-sm font-black text-white">{notification.title}</strong><span className="shrink-0 text-[11px] text-slate-500">{relativeTime(notification.createdAt)}</span></span><span className="mt-1 line-clamp-2 block text-xs leading-relaxed text-slate-400">{notification.body}</span></span>
-            {!notification.readAt && <span className="mt-5 h-2 w-2 shrink-0 rounded-full bg-lime-400 shadow-[0_0_9px_#a3e635]"/>}
-          </button>;
-        })}
-      </div>
-    </div>}
-
-    {toast && <div className="fixed inset-x-3 top-3 z-[70] mx-auto flex max-w-sm items-start gap-3 rounded-2xl border border-lime-400/30 bg-[#0a1322]/95 p-3 shadow-2xl shadow-black/60 backdrop-blur-xl sm:inset-x-auto sm:right-5 sm:top-5 sm:w-96">
-      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-lime-400 text-slate-950"><BellRing size={20}/></span><button type="button" onClick={() => void markRead(toast)} className="min-w-0 flex-1 text-left"><span className="block text-[10px] font-black uppercase tracking-[.17em] text-lime-400">Nueva actividad</span><strong className="mt-0.5 block truncate text-sm text-white">{toast.title}</strong><span className="mt-1 line-clamp-2 block text-xs text-slate-400">{toast.body}</span></button><button type="button" aria-label="Cerrar" onClick={() => setToast(null)} className="text-slate-500 hover:text-white"><X size={16}/></button>
-    </div>}
+    {panel}
+    {toastPortal}
   </div>;
 }

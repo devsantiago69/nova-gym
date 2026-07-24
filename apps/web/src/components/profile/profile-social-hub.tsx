@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import NextImage from "next/image";
 import {
   BarChart3,
   CalendarRange,
@@ -421,6 +422,7 @@ function StoryPreview({
   template: StoryTemplate;
   qrSvg: string;
 }) {
+  const qrDataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrSvg)}`;
   const month = monthProgress(progress);
   const monthDate = new Date(`${month.monthKey}-01T00:00:00Z`);
   const days = new Date(
@@ -559,9 +561,13 @@ function StoryPreview({
         </>
       )}
       <div className="absolute inset-x-4 bottom-4 flex items-center gap-3 rounded-2xl border border-white/[.07] bg-slate-950/75 p-3">
-        <div
-          className="h-10 w-10 shrink-0 rounded-lg bg-white p-1 [&_svg]:h-full [&_svg]:w-full"
-          dangerouslySetInnerHTML={{ __html: qrSvg }}
+        <NextImage
+          src={qrDataUrl}
+          alt="Código QR de tu perfil"
+          width={40}
+          height={40}
+          unoptimized
+          className="h-10 w-10 shrink-0 rounded-lg bg-white p-1"
         />
         <div>
           <p className="text-[8px] font-black">ENTRENA CONMIGO</p>
@@ -583,6 +589,7 @@ export function ProfileSocialHub({
   stats: SocialStats;
   progress: SocialProgress;
 }) {
+  const qrDataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrSvg)}`;
   const [scanner, setScanner] = useState(false);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -651,9 +658,13 @@ export function ProfileSocialHub({
             Escanea este código para conectar como amigos.
           </p>
           <div className="relative mx-auto mt-6 aspect-square w-full max-w-[252px] rounded-[34px] bg-gradient-to-br from-lime-300 via-white to-cyan-300 p-[3px] shadow-[0_0_65px_rgba(163,230,53,.16)]">
-            <div
-              className="h-full w-full rounded-[31px] bg-white p-5 [&_svg]:h-full [&_svg]:w-full"
-              dangerouslySetInnerHTML={{ __html: qrSvg }}
+            <NextImage
+              src={qrDataUrl}
+              alt="Código QR para conectar con tu perfil"
+              width={512}
+              height={512}
+              unoptimized
+              className="h-full w-full rounded-[31px] bg-white p-5"
             />
             <span className="pointer-events-none absolute left-1/2 top-1/2 grid h-11 w-11 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-xl border-4 border-white bg-slate-950 text-[10px] font-black text-lime-300 shadow-lg">
               NOVA

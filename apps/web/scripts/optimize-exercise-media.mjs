@@ -28,7 +28,7 @@ console.log(`Optimizando ${images.length} miniaturas...`);
 await processFiles(images, async (file) => {
   const destination = path.join(imageTarget, `${path.parse(file).name}.webp`);
   if (!force && await exists(destination)) return;
-  await sharp(path.join(imageSource, file)).rotate().resize(540, 540, { fit: "contain", background: "#ffffff", withoutEnlargement: false, kernel: sharp.kernel.lanczos3 }).sharpen({ sigma: 0.7, m1: 0.7, m2: 1 }).webp({ quality: 90, effort: 5 }).toFile(destination);
+  await sharp(path.join(imageSource, file)).rotate().resize(360, 360, { fit: "contain", background: "#ffffff", withoutEnlargement: false, kernel: sharp.kernel.lanczos3 }).webp({ quality: 92, effort: 5 }).toFile(destination);
 });
 
 const animations = (await readdir(animationSource)).filter((file) => /\.(gif|webp)$/i.test(file));
@@ -36,11 +36,12 @@ console.log(`Optimizando ${animations.length} animaciones...`);
 await processFiles(animations, async (file) => {
   const destination = path.join(animationTarget, `${path.parse(file).name}.webp`);
   if (!force && await exists(destination)) return;
-  await sharp(path.join(animationSource, file), { animated: true, limitInputPixels: false }).resize(540, 540, { fit: "contain", background: "#ffffff", withoutEnlargement: false, kernel: sharp.kernel.lanczos3 }).sharpen({ sigma: 0.8, m1: 0.7, m2: 1.1 }).webp({ quality: 88, effort: 4, loop: 0 }).toFile(destination);
+  await sharp(path.join(animationSource, file), { animated: true, limitInputPixels: false }).resize(360, 360, { fit: "contain", background: "#ffffff", withoutEnlargement: false, kernel: sharp.kernel.lanczos3 }).webp({ quality: 92, effort: 4, loop: 0 }).toFile(destination);
 });
 
 await writeFile(path.join(targetRoot, "manifest.json"), JSON.stringify({
   generatedAt: new Date().toISOString(), images: images.length, animations: animations.length,
   source: "hasaneyldrm/exercises-dataset", attribution: "© Gym visual — https://gymvisual.com/",
+  sourceResolution: "180x180", outputResolution: "360x360", version: 3,
 }, null, 2));
 console.log(`Biblioteca optimizada en ${targetRoot}`);

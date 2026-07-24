@@ -66,6 +66,7 @@ export function AttendanceManager({
   todayKey,
   locale,
   storyDurationSeconds,
+  locationEnabled,
   canChooseFromDevice,
   planName,
   initialRestDays,
@@ -76,6 +77,7 @@ export function AttendanceManager({
   todayKey: string;
   locale: "es" | "en";
   storyDurationSeconds: number;
+  locationEnabled: boolean;
   canChooseFromDevice: boolean;
   planName: string;
   initialRestDays: string[];
@@ -238,6 +240,13 @@ export function AttendanceManager({
   );
 
   useEffect(() => {
+    if (!locationEnabled) {
+      queueMicrotask(() => {
+        setCurrentLocation(undefined);
+        setLocationDiagnostic("");
+      });
+      return;
+    }
     queueMicrotask(() =>
       setCurrentLocation(recentBrowserLocation(10 * 60_000)),
     );
@@ -256,7 +265,7 @@ export function AttendanceManager({
         .catch(() => setLocationPermission("prompt"));
     } else queueMicrotask(() => setLocationPermission("unsupported"));
     return () => window.removeEventListener("nova-gym:location", receive);
-  }, []);
+  }, [locationEnabled]);
 
   async function testLocation() {
     setLocationTesting(true);
@@ -318,18 +327,20 @@ export function AttendanceManager({
       120_000,
     );
     try {
-      let position = currentLocation;
-      if (!position || Date.now() - position.capturedAt > 10 * 60_000) {
-        setMessage("Actualizando tu ubicación…");
-        position = await requestBrowserLocation(true);
-        setCurrentLocation(position);
-      }
       const data = new FormData(form);
       data.set("photo", selectedFile, selectedFile.name);
       data.set("photoSource", photoSource);
-      data.set("latitude", String(position.latitude));
-      data.set("longitude", String(position.longitude));
-      data.set("accuracy", String(position.accuracy));
+      if (locationEnabled) {
+        let position = currentLocation;
+        if (!position || Date.now() - position.capturedAt > 10 * 60_000) {
+          setMessage("Actualizando tu ubicación…");
+          position = await requestBrowserLocation(true);
+          setCurrentLocation(position);
+        }
+        data.set("latitude", String(position.latitude));
+        data.set("longitude", String(position.longitude));
+        data.set("accuracy", String(position.accuracy));
+      }
       stage = "upload";
       setMessage("Subiendo tu evidencia de forma segura…");
       const response = await fetch(url, {
@@ -354,7 +365,7 @@ export function AttendanceManager({
       setMessage(
         error instanceof DOMException && error.name === "AbortError"
           ? "La subida tardó demasiado. Tu registro sigue seguro; inténtalo nuevamente con una conexión estable."
-          : stage === "location"
+          : stage === "location" && locationEnabled
             ? locationErrorMessage(error)
             : "No pudimos guardar la asistencia. Revisa tu conexión e intenta nuevamente.",
       );
@@ -617,7 +628,9 @@ export function AttendanceManager({
                 <p className="mt-2 muted">
                   {active
                     ? "Añade la fotografía final después de mínimo 15 minutos."
-                    : "Una foto, tu ubicación y listo. Tu evidencia siempre será privada."}
+                    : locationEnabled
+                      ? "Una foto, un punto protegido y listo. Tu evidencia siempre será privada."
+                      : "Una foto y listo. Elegiste registrar tu evidencia sin ubicación."}
                 </p>
               </div>
 
@@ -654,7 +667,7 @@ export function AttendanceManager({
                 </div>
               )}
 
-              <div
+              {locationEnabled ? <div
                 className={`rounded-2xl border p-5 ${currentLocation ? "border-lime-500/40 bg-gradient-to-br from-lime-400/10 to-emerald-500/5" : "border-amber-500/30 bg-amber-400/5"}`}
               >
                 <div className="flex flex-wrap items-center justify-between gap-4">
@@ -727,15 +740,37 @@ export function AttendanceManager({
                     {locationDiagnostic}
                   </p>
                 )}
-              </div>
+              </div> : (
+                <div className="relative overflow-hidden rounded-2xl border border-cyan-300/20 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,.16),transparent_42%),rgba(34,211,238,.05)] p-5">
+                  <div className="flex items-start gap-4">
+                    <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-cyan-300 text-slate-950">
+                      <ShieldCheck size={23} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <strong className="text-lg">Entrenamiento sin ubicación</strong>
+                      <p className="mt-1 text-sm leading-relaxed text-slate-300">
+                        Respetamos tu elección: no pediremos GPS ni guardaremos
+                        coordenadas en esta asistencia.
+                      </p>
+                      <Link
+                        href="/perfil?ajuste=privacidad#ajustes"
+                        className="mt-3 inline-flex items-center gap-1 text-xs font-black text-cyan-300"
+                      >
+                        Cambiar privacidad <ChevronRight size={14} />
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="flex gap-3 rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
                 <ShieldCheck className="shrink-0 text-lime-400" />
                 <div>
                   <strong>Evidencia privada</strong>
                   <p className="mt-1 text-sm muted">
-                    La foto y el punto de ubicación solo se usan para validar tu
-                    registro.
+                    {locationEnabled
+                      ? "La foto y el punto de ubicación solo se usan para validar tu registro."
+                      : "Solo guardaremos tu fotografía para validar este registro."}
                   </p>
                 </div>
               </div>

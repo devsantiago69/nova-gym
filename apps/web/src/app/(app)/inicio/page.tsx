@@ -5,11 +5,11 @@ import {
   ArrowUpRight,
   CalendarDays,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
   Clock3,
   Dumbbell,
   Flame,
-  Sparkles,
   Target,
   Trophy,
   UsersRound,
@@ -197,18 +197,16 @@ export default async function Dashboard() {
   const friendsDone = friends.filter((friend) => friend.attendance).length;
 
   return (
-    <div className="space-y-7 pb-8">
-      <header className="flex flex-wrap items-end justify-between gap-4">
+    <div className="relative space-y-7 pb-8">
+      <div className="pointer-events-none absolute -left-40 top-10 -z-10 h-96 w-96 rounded-full bg-lime-400/[.06] blur-3xl" />
+      <div className="pointer-events-none absolute -right-40 top-80 -z-10 h-96 w-96 rounded-full bg-cyan-400/[.05] blur-3xl" />
+      <header className="flex flex-wrap items-end justify-between gap-4 pt-2">
         <div>
           <p className="text-sm font-black uppercase tracking-[.14em] text-lime-400">
             TU CENTRO DE PROGRESO
           </p>
-          <h1 className="mt-1 flex items-center gap-3 text-3xl font-black sm:text-5xl">
-            Hola, {profile?.firstName ?? session!.user.name ?? "atleta"}{" "}
-            <Sparkles
-              className="h-7 w-7 shrink-0 text-lime-300 sm:h-9 sm:w-9"
-              aria-hidden="true"
-            />
+          <h1 className="mt-1 text-3xl font-black sm:text-5xl">
+            Hola, {profile?.firstName ?? session!.user.name ?? "atleta"}
           </h1>
           <p className="mt-2 muted">
             Tu constancia, tu equipo y tus retos en un solo lugar.
@@ -227,7 +225,7 @@ export default async function Dashboard() {
         </Link>
       </header>
 
-      <section className="relative isolate overflow-hidden rounded-[32px] border border-lime-400/20 bg-gradient-to-br from-slate-900 via-emerald-950/55 to-slate-950 p-6 shadow-[0_25px_80px_rgba(34,197,94,.08)] sm:p-8">
+      <section className="relative isolate overflow-hidden rounded-[34px] border border-white/[.09] bg-[radial-gradient(circle_at_90%_0%,rgba(163,230,53,.18),transparent_34%),radial-gradient(circle_at_5%_100%,rgba(34,211,238,.1),transparent_35%),rgba(10,18,32,.78)] p-6 shadow-[0_30px_90px_rgba(0,0,0,.24)] backdrop-blur-2xl sm:p-8">
         <div className="pointer-events-none absolute -right-20 -top-20 -z-10 h-64 w-64 rounded-full bg-lime-400/15 blur-3xl" />
         <div className="grid gap-7 lg:grid-cols-[1fr_1.2fr] lg:items-center">
           <div>
@@ -289,7 +287,10 @@ export default async function Dashboard() {
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {stats.map(([label, value, Icon, color]) => (
-          <article className="card p-4 sm:p-5" key={label}>
+          <article
+            className="rounded-[24px] border border-white/[.08] bg-[linear-gradient(145deg,rgba(15,23,42,.82),rgba(2,6,23,.66))] p-4 shadow-[0_18px_45px_rgba(0,0,0,.16)] backdrop-blur-xl sm:p-5"
+            key={label}
+          >
             <span
               className={`grid h-11 w-11 place-items-center rounded-2xl ${color}`}
             >
@@ -301,24 +302,37 @@ export default async function Dashboard() {
         ))}
       </div>
 
-      <div className="grid items-start gap-6 xl:grid-cols-[1.15fr_.85fr]">
-        <section className="card overflow-hidden">
-          <div className="flex items-center justify-between gap-3 border-b border-slate-800 p-5 sm:p-6">
-            <div>
+      <section className="space-y-3">
+        <div className="px-1">
+          <p className="text-[10px] font-black tracking-[.18em] text-slate-500">
+            TU INFORMACIÓN, A TU RITMO
+          </p>
+          <h2 className="mt-1 text-2xl font-black">Explora tu día</h2>
+          <p className="mt-1 text-sm muted">
+            Abre solo lo que quieres revisar y mantén tu inicio ligero.
+          </p>
+        </div>
+
+        <details
+          open
+          className="group overflow-hidden rounded-[28px] border border-white/[.08] bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,.1),transparent_32%),rgba(10,18,32,.76)] shadow-[0_22px_65px_rgba(0,0,0,.18)] backdrop-blur-xl"
+        >
+          <summary className="flex cursor-pointer list-none items-center gap-4 p-5 marker:hidden sm:p-6 [&::-webkit-details-marker]:hidden">
+            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-cyan-300/15 bg-cyan-300/10 text-cyan-300">
+              <UsersRound size={22} />
+            </span>
+            <div className="min-w-0 flex-1">
               <p className="text-xs font-black text-cyan-300">
                 PULSO DE TU EQUIPO
               </p>
               <h2 className="mt-1 text-2xl font-black">¿Quién entrenó hoy?</h2>
             </div>
-            <Link
-              href="/comunidad"
-              aria-label="Ver comunidad"
-              className="rounded-xl border border-slate-700 p-2.5 text-slate-300 hover:border-cyan-400"
-            >
-              <ArrowUpRight size={19} />
-            </Link>
-          </div>
-          <div className="p-4 sm:p-5">
+            <span className="hidden rounded-full border border-cyan-300/15 bg-cyan-300/[.06] px-3 py-1.5 text-xs font-black text-cyan-200 sm:inline">
+              {friendsDone}/{friends.length} activos
+            </span>
+            <ChevronDown className="shrink-0 text-slate-500 transition duration-300 group-open:rotate-180 group-open:text-cyan-300" />
+          </summary>
+          <div className="border-t border-white/[.06] p-4 sm:p-5">
             <div className="mb-5 rounded-2xl bg-slate-950/70 p-4">
               <div className="flex items-center justify-between text-sm">
                 <span className="muted">Equipo activo hoy</span>
@@ -387,24 +401,30 @@ export default async function Dashboard() {
                 ))}
               </div>
             )}
+            <Link
+              href="/comunidad"
+              className="mt-4 inline-flex items-center gap-2 text-sm font-black text-cyan-300"
+            >
+              Abrir comunidad <ArrowUpRight size={16} />
+            </Link>
           </div>
-        </section>
+        </details>
 
-        <section className="card overflow-hidden">
-          <div className="flex items-center justify-between gap-3 border-b border-slate-800 p-5 sm:p-6">
-            <div>
+        <details className="group overflow-hidden rounded-[28px] border border-white/[.08] bg-[radial-gradient(circle_at_top_right,rgba(251,146,60,.1),transparent_32%),rgba(10,18,32,.76)] shadow-[0_22px_65px_rgba(0,0,0,.18)] backdrop-blur-xl">
+          <summary className="flex cursor-pointer list-none items-center gap-4 p-5 marker:hidden sm:p-6 [&::-webkit-details-marker]:hidden">
+            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-orange-300/15 bg-orange-300/10 text-orange-300">
+              <Target size={22} />
+            </span>
+            <div className="min-w-0 flex-1">
               <p className="text-xs font-black text-orange-300">TUS RETOS</p>
               <h2 className="mt-1 text-2xl font-black">La meta está cerca</h2>
             </div>
-            <Link
-              href="/retos"
-              aria-label="Ver retos"
-              className="rounded-xl border border-slate-700 p-2.5 text-slate-300 hover:border-orange-400"
-            >
-              <ArrowUpRight size={19} />
-            </Link>
-          </div>
-          <div className="space-y-3 p-4 sm:p-5">
+            <span className="hidden rounded-full border border-orange-300/15 bg-orange-300/[.06] px-3 py-1.5 text-xs font-black text-orange-200 sm:inline">
+              {challenges.length} activos
+            </span>
+            <ChevronDown className="shrink-0 text-slate-500 transition duration-300 group-open:rotate-180 group-open:text-orange-300" />
+          </summary>
+          <div className="space-y-3 border-t border-white/[.06] p-4 sm:p-5">
             {challenges.length === 0 ? (
               <div className="py-8 text-center">
                 <Target className="mx-auto h-10 w-10 text-slate-600" />
@@ -462,13 +482,21 @@ export default async function Dashboard() {
                 );
               })
             )}
+            <Link
+              href="/retos"
+              className="inline-flex items-center gap-2 text-sm font-black text-orange-300"
+            >
+              Abrir mis retos <ArrowUpRight size={16} />
+            </Link>
           </div>
-        </section>
-      </div>
+        </details>
 
-      <section className="mx-auto w-full max-w-2xl">
-        <div className="mb-4 flex items-end justify-between gap-3">
-          <div>
+        <details className="group overflow-hidden rounded-[28px] border border-white/[.08] bg-[radial-gradient(circle_at_top_right,rgba(192,132,252,.1),transparent_32%),rgba(10,18,32,.76)] shadow-[0_22px_65px_rgba(0,0,0,.18)] backdrop-blur-xl">
+          <summary className="flex cursor-pointer list-none items-center gap-4 p-5 marker:hidden sm:p-6 [&::-webkit-details-marker]:hidden">
+            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-violet-300/15 bg-violet-300/10 text-violet-300">
+              <Activity size={22} />
+            </span>
+            <div className="min-w-0 flex-1">
             <p className="text-xs font-black text-violet-300">PULSO NOVA</p>
             <h2 className="mt-1 text-2xl font-black">
               Actividad de tu círculo
@@ -477,14 +505,20 @@ export default async function Dashboard() {
               Celebra los avances de quienes entrenan contigo.
             </p>
           </div>
-          <Link
-            href="/actividad"
-            className="shrink-0 text-sm font-black text-lime-300"
-          >
-            Ver todo →
-          </Link>
-        </div>
-        <SocialFeed initial={feedPosts} compact />
+            <ChevronDown className="shrink-0 text-slate-500 transition duration-300 group-open:rotate-180 group-open:text-violet-300" />
+          </summary>
+          <div className="border-t border-white/[.06] p-4 sm:p-5">
+            <div className="mx-auto max-w-2xl">
+              <SocialFeed initial={feedPosts} compact />
+            </div>
+            <Link
+              href="/actividad"
+              className="mt-4 inline-flex items-center gap-2 text-sm font-black text-violet-300"
+            >
+              Ver toda la actividad <ArrowUpRight size={16} />
+            </Link>
+          </div>
+        </details>
       </section>
 
       <section className="grid gap-3 sm:grid-cols-3">

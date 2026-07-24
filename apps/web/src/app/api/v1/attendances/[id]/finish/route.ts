@@ -12,6 +12,8 @@ import {
   createNotifications,
   userDisplayName,
 } from "@/modules/notifications/service";
+import { attendanceCoordinates } from "@/modules/attendance/location";
+import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 export async function POST(
   request: Request,
@@ -19,6 +21,8 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session) return fail("UNAUTHORIZED", "Debes iniciar sesión", 401);
+  const uploadLimit = await rateLimit({ scope: "attendance-finish-upload", identifier: session.user.id, limit: 8, windowSeconds: 60 * 60 });
+  if (!uploadLimit.allowed) return tooManyRequests(uploadLimit);
   try {
     const { id } = await params;
     const attendance = await prisma.attendance.findFirst({
@@ -57,21 +61,14 @@ export async function POST(
         "Tu plan Free permite registrar evidencias únicamente con la cámara",
         403,
       );
-    const latitude = Number(form.get("latitude"));
-    const longitude = Number(form.get("longitude"));
-    const accuracy = Number(form.get("accuracy"));
-    if (
-      !Number.isFinite(latitude) ||
-      latitude < -90 ||
-      latitude > 90 ||
-      !Number.isFinite(longitude) ||
-      longitude < -180 ||
-      longitude > 180
-    )
-      throw new DomainError(
-        "LOCATION_REQUIRED",
-        "Debes permitir una ubicación válida",
-      );
+    const profile = await prisma.userProfile.findUniqueOrThrow({
+      where: { userId: session.user.id },
+      select: { attendanceLocationEnabled: true },
+    });
+    const location = attendanceCoordinates(
+      form,
+      profile.attendanceLocationEnabled === true,
+    );
     const now = new Date();
     const duration = Math.floor(
       (now.getTime() - attendance.startedAt.getTime()) / 60_000,
@@ -118,9 +115,9 @@ export async function POST(
           status: "COMPLETED",
           finishedAt: now,
           durationMinutes: duration,
-          endLatitude: latitude,
-          endLongitude: longitude,
-          endAccuracyMeters: Number.isFinite(accuracy) ? accuracy : null,
+          endLatitude: location?.latitude ?? null,
+          endLongitude: location?.longitude ?? null,
+          endAccuracyMeters: location?.accuracy ?? null,
         },
       });
       const previousDailyPoint = await tx.pointLedger.findFirst({

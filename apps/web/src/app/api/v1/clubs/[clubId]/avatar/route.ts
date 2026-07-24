@@ -5,10 +5,13 @@ import { authOptions } from "@/lib/auth";
 import { fail, ok } from "@/lib/api-response";
 import { deletePrivateObject, getPrivateObject, putPrivateObject } from "@/lib/private-storage";
 import { normalizeAvatarImage } from "@/modules/profile/avatar-image";
+import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 export async function GET(_: Request, { params }: { params: Promise<{ clubId: string }> }) {
   const auth = await getServerSession(authOptions);
   if (!auth) return fail("UNAUTHORIZED", "Debes iniciar sesión", 401);
+  const uploadLimit = await rateLimit({ scope: "club-avatar-upload", identifier: auth.user.id, limit: 15, windowSeconds: 60 * 60 });
+  if (!uploadLimit.allowed) return tooManyRequests(uploadLimit);
   const { clubId } = await params;
   const club = await prisma.club.findUnique({
     where: { id: clubId },

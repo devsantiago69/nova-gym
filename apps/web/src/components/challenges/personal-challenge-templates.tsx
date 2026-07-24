@@ -112,7 +112,7 @@ export function PersonalChallengeTemplates({
   }
   if (templates.length === 0) return null;
   return (
-    <section className="mb-9 overflow-hidden rounded-[30px] border border-violet-400/20 bg-[radial-gradient(circle_at_top_left,rgba(167,139,250,.12),transparent_34%),#0c1220] p-5 sm:p-7">
+    <section className="overflow-hidden rounded-[26px] border border-violet-400/20 bg-[radial-gradient(circle_at_top_left,rgba(167,139,250,.12),transparent_34%),#0c1220] p-5 sm:p-7">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="flex items-center gap-2 text-xs font-black text-violet-300">

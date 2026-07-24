@@ -28,7 +28,7 @@ export async function GET(request: Request) {
   return ok(exercises.map((exercise) => ({
     ...exercise,
     displayName: exercise.nameEs || exercise.name,
-    mediaUrl: `/api/v1/exercises/${exercise.id}/media?type=image&v=quality2`,
-    animationUrl: `/api/v1/exercises/${exercise.id}/media?type=animation&v=quality2`,
+    mediaUrl: `/api/v1/exercises/${exercise.id}/media?type=image&v=quality3`,
+    animationUrl: `/api/v1/exercises/${exercise.id}/media?type=animation&v=quality3`,
   })));
 }

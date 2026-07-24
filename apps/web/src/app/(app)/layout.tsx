@@ -16,7 +16,12 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const s = await getServerSession(authOptions);
-  if (!s) redirect("/login");
+  if (
+    !s?.user.id ||
+    s.user.status === "INACTIVE" ||
+    s.user.status === "SUSPENDED"
+  )
+    redirect("/login");
   if (s.user.status === "PENDING_PASSWORD_CHANGE")
     redirect("/cambiar-contrasena");
   const [profile, subscription] = await Promise.all([
@@ -29,6 +34,7 @@ export default async function AppLayout({
         localeAuto: true,
         timezone: true,
         fontFamily: true,
+        attendanceLocationEnabled: true,
       },
     }),
     prisma.subscription.findFirst({
@@ -53,7 +59,9 @@ export default async function AppLayout({
       data-app-font={profile?.fontFamily ?? "nova"}
     >
       <LocaleRuntime locale={locale} />
-      <LocationConsent />
+      <LocationConsent
+        preference={profile?.attendanceLocationEnabled ?? null}
+      />
       <header className="sticky top-0 z-40 mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 border-b border-white/[.06] bg-[#070b12]/78 p-4 shadow-[0_12px_35px_rgba(0,0,0,.12)] backdrop-blur-2xl sm:p-5 md:rounded-b-[24px]">
         <Link href="/inicio" className="text-xl font-black text-lime-400">
           {appConfig.name}

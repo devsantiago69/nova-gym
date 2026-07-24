@@ -5,10 +5,13 @@ import { authOptions } from "@/lib/auth";
 import { fail, ok } from "@/lib/api-response";
 import { deletePrivateObject, putPrivateObject } from "@/lib/private-storage";
 import { normalizeAvatarImage } from "@/modules/profile/avatar-image";
+import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);
   if (!session) return fail("UNAUTHORIZED", "Debes iniciar sesión", 401);
+  const uploadLimit = await rateLimit({ scope: "profile-avatar-upload", identifier: session.user.id, limit: 10, windowSeconds: 60 * 60 });
+  if (!uploadLimit.allowed) return tooManyRequests(uploadLimit);
   try {
     const form = await request.formData();
     const file = form.get("avatar");

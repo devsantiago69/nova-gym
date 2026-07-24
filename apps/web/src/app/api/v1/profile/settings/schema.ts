@@ -46,4 +46,5 @@ export const profileSettingsSchema = z.object({
     "Europe/Madrid",
   ]),
   showActiveChallenges: z.boolean(),
+  attendanceLocationEnabled: z.boolean(),
 });

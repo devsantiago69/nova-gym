@@ -15,8 +15,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ cha
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return fail("VALIDATION_ERROR", "Selecciona si la evidencia es válida o no", 422);
   const { challengeId, attendanceId } = await params;
-  const eligibleEvents = await prisma.challengeScoreEvent.findMany({
+  const eligibleEvent = await prisma.challengeScoreEvent.findFirst({
     where: {
+      challengeId,
       attendanceId,
       userId: { not: session.user.id },
       challenge: {
@@ -26,26 +27,59 @@ export async function POST(request: Request, { params }: { params: Promise<{ cha
     },
     select: { challengeId: true, userId: true },
   });
-  const challengeIds = [...new Set(eligibleEvents.map((event) => event.challengeId))];
-  const evidenceOwnerId = eligibleEvents[0]?.userId;
-  if (!evidenceOwnerId || !challengeIds.includes(challengeId)) return fail("NOT_FOUND", "Evidencia no encontrada en tus retos compartidos", 404);
+  const evidenceOwnerId = eligibleEvent?.userId;
+  if (!evidenceOwnerId) return fail("NOT_FOUND", "Evidencia no encontrada en este reto", 404);
   const view = await prisma.challengeEvidenceView.findUnique({ where: { attendanceId_viewerId: { attendanceId, viewerId: session.user.id } } });
   if (!view || view.challengeId !== challengeId || view.decidedAt || view.expiresAt.getTime() < Date.now() || !evidenceTokenMatches(parsed.data.viewToken, view.tokenHash)) return fail("PRIVATE_VIEW_EXPIRED", "La ventana de verificación terminó. Puedes abrir una nueva mientras tu voto siga pendiente.", 410);
-  const previousReview = await prisma.challengeAttendanceReview.findFirst({ where: { challengeId: { in: challengeIds }, attendanceId, reviewerId: session.user.id }, select: { id: true } });
-  if (previousReview) return fail("EVIDENCE_ALREADY_REVIEWED", "Ya registraste tu decisión para esta evidencia", 409);
+  const previousReview = await prisma.challengeAttendanceReview.findUnique({
+    where: {
+      challengeId_attendanceId_reviewerId: {
+        challengeId,
+        attendanceId,
+        reviewerId: session.user.id,
+      },
+    },
+    select: { verdict: true },
+  });
 
   const reviewedAt = new Date();
   await prisma.$transaction(async (tx) => {
-    await tx.challengeAttendanceReview.createMany({
-      data: challengeIds.map((sharedChallengeId) => ({ challengeId: sharedChallengeId, attendanceId, reviewerId: session.user.id, verdict: parsed.data.verdict, note: parsed.data.note || null })),
-      skipDuplicates: true,
+    await tx.challengeAttendanceReview.upsert({
+      where: {
+        challengeId_attendanceId_reviewerId: {
+          challengeId,
+          attendanceId,
+          reviewerId: session.user.id,
+        },
+      },
+      create: {
+        challengeId,
+        attendanceId,
+        reviewerId: session.user.id,
+        verdict: parsed.data.verdict,
+        note: parsed.data.note || null,
+      },
+      update: {
+        verdict: parsed.data.verdict,
+        note: parsed.data.note || null,
+      },
     });
     await tx.challengeEvidenceView.update({ where: { id: view.id }, data: { decidedAt: new Date() } });
-    for (const sharedChallengeId of challengeIds) {
-      const score = await challengeScoreForParticipant(tx, sharedChallengeId, evidenceOwnerId);
-      await tx.challengeParticipant.update({ where: { challengeId_userId: { challengeId: sharedChallengeId, userId: evidenceOwnerId } }, data: { score } });
-    }
-    await tx.auditLog.create({ data: { actorId: session.user.id, action: "CHALLENGE_EVIDENCE_REVIEWED", entityType: "Attendance", entityId: attendanceId, correlationId: crypto.randomUUID(), newValues: { challengeIds, verdict: parsed.data.verdict } } });
+    const score = await challengeScoreForParticipant(tx, challengeId, evidenceOwnerId);
+    await tx.challengeParticipant.update({ where: { challengeId_userId: { challengeId, userId: evidenceOwnerId } }, data: { score } });
+    await tx.auditLog.create({
+      data: {
+        actorId: session.user.id,
+        action: previousReview ? "CHALLENGE_EVIDENCE_REVIEW_UPDATED" : "CHALLENGE_EVIDENCE_REVIEWED",
+        entityType: "Attendance",
+        entityId: attendanceId,
+        correlationId: crypto.randomUUID(),
+        ...(previousReview
+          ? { previousValues: { challengeId, verdict: previousReview.verdict } }
+          : {}),
+        newValues: { challengeId, verdict: parsed.data.verdict },
+      },
+    });
   });
   const actorName = await userDisplayName(session.user.id);
   await createNotifications([{
@@ -53,10 +87,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ cha
     actorId: session.user.id,
     type: "EVIDENCE_REVIEWED",
     title: parsed.data.verdict === "CONFIRMED" ? "Tu equipo validó tu asistencia" : "Tu evidencia necesita revisión",
-    body: parsed.data.verdict === "CONFIRMED" ? `${actorName} confirmó que cumpliste el entrenamiento.` : `${actorName} marcó tu evidencia como dudosa${parsed.data.note ? `: ${parsed.data.note}` : "."}`,
+    body: previousReview
+      ? `${actorName} actualizó su decisión sobre tu entrenamiento en este reto.`
+      : parsed.data.verdict === "CONFIRMED"
+        ? `${actorName} confirmó que cumpliste el entrenamiento.`
+        : `${actorName} marcó tu evidencia como dudosa${parsed.data.note ? `: ${parsed.data.note}` : "."}`,
     href: "/retos",
-    data: { challengeIds, attendanceId, verdict: parsed.data.verdict },
-    dedupeKey: `evidence-review:${attendanceId}:${session.user.id}:${reviewedAt.toISOString()}`,
+    data: { challengeId, attendanceId, verdict: parsed.data.verdict },
+    dedupeKey: `evidence-review:${challengeId}:${attendanceId}:${session.user.id}:${reviewedAt.toISOString()}`,
   }]);
-  return ok({ attendanceId, challengeIds, verdict: parsed.data.verdict, reviewedAt }, parsed.data.verdict === "CONFIRMED" ? "Confirmaste su asistencia en tus retos compartidos" : "Marcaste esta evidencia como dudosa en tus retos compartidos");
+  return ok(
+    { attendanceId, challengeId, verdict: parsed.data.verdict, reviewedAt },
+    previousReview
+      ? "Actualizaste tu decisión únicamente en este reto"
+      : parsed.data.verdict === "CONFIRMED"
+        ? "Confirmaste su asistencia en este reto"
+        : "Pediste revisar esta evidencia en este reto",
+  );
 }

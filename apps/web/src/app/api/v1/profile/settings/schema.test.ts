@@ -14,6 +14,7 @@ const valid = {
   storyDurationSeconds: 10,
   timezone: "America/Bogota",
   showActiveChallenges: true,
+  attendanceLocationEnabled: true,
 };
 
 describe("profileSettingsSchema", () => {

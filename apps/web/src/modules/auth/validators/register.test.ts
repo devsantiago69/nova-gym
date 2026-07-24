@@ -6,4 +6,5 @@ describe("registerSchema", () => {
   it("acepta registro sin correo y normaliza usuario", () => expect(registerSchema.parse(valid).username).toBe("ana.fit"));
   it("rechaza WhatsApp sin prefijo internacional", () => expect(registerSchema.safeParse({ ...valid, whatsappNumber: "3001234567" }).success).toBe(false));
   it("rechaza una contraseña corta", () => expect(registerSchema.safeParse({ ...valid, password: "corta" }).success).toBe(false));
+  it("rechaza una contraseña conocida aunque sea larga", () => expect(registerSchema.safeParse({ ...valid, password: "password1234" }).success).toBe(false));
 });

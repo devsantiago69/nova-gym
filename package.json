@@ -1,6 +1,9 @@
 {
   "name": "gymchallenge",
   "private": true,
+  "engines": {
+    "node": ">=24 <25"
+  },
   "packageManager": "pnpm@10.13.1",
   "scripts": {
     "dev": "pnpm --filter @gymchallenge/web dev",
@@ -11,6 +14,13 @@
     "db:generate": "dotenv -e .env -- pnpm --filter @gymchallenge/database generate",
     "db:migrate": "dotenv -e .env -- pnpm --filter @gymchallenge/database migrate",
     "db:seed": "dotenv -e .env -- pnpm --filter @gymchallenge/database seed"
+  },
+  "pnpm": {
+    "overrides": {
+      "@prisma/config>effect": "3.20.0",
+      "next>postcss": "8.5.10",
+      "next>sharp": "0.35.3"
+    }
   },
   "devDependencies": {
     "@eslint/js": "^9.30.1",

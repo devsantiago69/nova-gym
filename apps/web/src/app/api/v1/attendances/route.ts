@@ -7,9 +7,10 @@ import { putPrivateObject } from "@/lib/private-storage";
 import { normalizeAttendanceImage } from "@/modules/attendance/image";
 import { activePlanEntitlements, canStoreBytes } from "@/modules/plans/entitlements";
 import { canUseAttendancePhotoSource, isAttendancePhotoSource } from "@/modules/plans/attendance-photo-policy";
+import { attendanceCoordinates } from "@/modules/attendance/location";
+import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 function localDate(timezone: string) { return new Date(`${new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date())}T00:00:00.000Z`); }
-function coordinates(form: FormData) { const latitude=Number(form.get("latitude"));const longitude=Number(form.get("longitude"));const accuracy=Number(form.get("accuracy"));if(!Number.isFinite(latitude)||latitude < -90||latitude > 90||!Number.isFinite(longitude)||longitude < -180||longitude > 180)throw new DomainError("LOCATION_REQUIRED","Debes permitir una ubicación válida");return {latitude,longitude,accuracy:Number.isFinite(accuracy)?accuracy:null}; }
 async function userSession() { return getServerSession(authOptions); }
 
 export async function GET() {
@@ -22,8 +23,10 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const session = await userSession(); if (!session) return fail("UNAUTHORIZED", "Debes iniciar sesión", 401);
+  const uploadLimit = await rateLimit({ scope: "attendance-upload", identifier: session.user.id, limit: 8, windowSeconds: 60 * 60 });
+  if (!uploadLimit.allowed) return tooManyRequests(uploadLimit);
   try {
-    const form = await request.formData(); const file = form.get("photo"); const location=coordinates(form);
+    const form = await request.formData(); const file = form.get("photo");
     if (!(file instanceof File)) throw new DomainError("PHOTO_REQUIRED", "La fotografía inicial es obligatoria");
     const photoSource = form.get("photoSource");
     if (!isAttendancePhotoSource(photoSource)) throw new DomainError("PHOTO_SOURCE_REQUIRED", "Selecciona cómo deseas tomar la fotografía");
@@ -31,6 +34,10 @@ export async function POST(request: Request) {
     if (!plan) return fail("PLAN_REQUIRED", "Necesitas un plan activo para registrar evidencias", 403);
     if (!canUseAttendancePhotoSource(plan.code, photoSource)) return fail("PLAN_UPGRADE_REQUIRED", "Tu plan Free permite registrar evidencias únicamente con la cámara", 403);
     const profile = await prisma.userProfile.findUniqueOrThrow({ where: { userId: session.user.id } });
+    const location = attendanceCoordinates(
+      form,
+      profile.attendanceLocationEnabled === true,
+    );
     const date = localDate(profile.timezone);
     const restDay = await prisma.challengeRestDay.findFirst({ where: { userId: session.user.id, localDate: date }, select: { id: true } });
     if (restDay) return fail("REST_DAY_ACTIVE", "Hoy elegiste descansar. Cancela el descanso si deseas entrenar.", 409);
@@ -42,7 +49,7 @@ export async function POST(request: Request) {
     const attendanceId = crypto.randomUUID();
     const key = `attendance/${session.user.id}/${attendanceId}/start.webp`;
     await putPrivateObject(key, image.body, image.mimeType);
-    const attendance = await prisma.attendance.create({ data: { id: attendanceId, userId: session.user.id, localDate: date, timezone: profile.timezone, startLatitude:location.latitude,startLongitude:location.longitude,startAccuracyMeters:location.accuracy,photos: { create: { ownerId: session.user.id, type: "START", objectKey: key, mimeType: image.mimeType, sizeBytes: image.size, checksum: image.checksum, width: image.width, height: image.height } } } });
+    const attendance = await prisma.attendance.create({ data: { id: attendanceId, userId: session.user.id, localDate: date, timezone: profile.timezone, startLatitude:location?.latitude ?? null,startLongitude:location?.longitude ?? null,startAccuracyMeters:location?.accuracy ?? null,photos: { create: { ownerId: session.user.id, type: "START", objectKey: key, mimeType: image.mimeType, sizeBytes: image.size, checksum: image.checksum, width: image.width, height: image.height } } } });
     return ok(attendance, "Entrenamiento iniciado", 201);
   } catch (error) {
     if (error instanceof DomainError) return fail(error.code, error.message, 422);

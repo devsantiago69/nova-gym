@@ -40,6 +40,8 @@ export async function PATCH(request: Request) {
           storyDurationSeconds: parsed.data.storyDurationSeconds,
           timezone: parsed.data.timezone,
           showActiveChallenges: parsed.data.showActiveChallenges,
+          attendanceLocationEnabled:
+            parsed.data.attendanceLocationEnabled,
         },
       });
       await tx.auditLog.create({
@@ -57,6 +59,8 @@ export async function PATCH(request: Request) {
             storyDurationSeconds: parsed.data.storyDurationSeconds,
             timezone: parsed.data.timezone,
             showActiveChallenges: parsed.data.showActiveChallenges,
+            attendanceLocationEnabled:
+              parsed.data.attendanceLocationEnabled,
           },
         },
       });

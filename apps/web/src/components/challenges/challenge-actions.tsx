@@ -45,7 +45,7 @@ export function ChallengeActions({ categories, friends, invitations, initialTemp
     setStep((value) => Math.min(3, value + 1));
   }
 
-  return <div className="mb-9 space-y-6">
+  return <div className="space-y-6">
     {invitations.length > 0 && <section className="overflow-hidden rounded-[28px] border border-orange-400/30 bg-gradient-to-br from-orange-400/10 via-slate-900 to-lime-400/5"><div className="flex items-center gap-3 border-b border-orange-400/20 p-5"><span className="grid h-11 w-11 place-items-center rounded-2xl bg-orange-400 text-slate-950"><Swords/></span><div><p className="text-xs font-bold text-orange-300">INVITACIONES</p><h2 className="text-xl font-black">Tu próximo reto te espera</h2></div><span className="ml-auto rounded-full bg-orange-400 px-3 py-1 text-xs font-black text-slate-950">{invitations.length}</span></div><div className="grid gap-3 p-4 sm:grid-cols-2">{invitations.map((invitation) => <article key={invitation.id} className="rounded-2xl border border-slate-700 bg-slate-950/80 p-4"><div className="flex items-start gap-3"><div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-orange-400 to-lime-400 font-black text-slate-950">{invitation.creator.charAt(0)}</div><div><p><strong>{invitation.creator}</strong> te invitó</p><p className="mt-1 text-sm text-orange-300">{invitation.category}</p></div></div><button disabled={busy} onClick={() => action({ action: "accept", challengeId: invitation.id })} className="btn mt-4 w-full gap-2"><Check size={18}/>Aceptar reto</button></article>)}</div></section>}
 
     <section className="overflow-hidden rounded-[30px] border border-slate-700 bg-gradient-to-br from-slate-900 via-slate-900 to-violet-950/25 shadow-[0_28px_90px_rgba(0,0,0,.22)]">

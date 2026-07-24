@@ -7,15 +7,29 @@ import {
 } from "@aws-sdk/client-s3";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 
+const production = process.env.NODE_ENV === "production";
+const endpoint = process.env.S3_ENDPOINT ?? "http://127.0.0.1:9000";
+const accessKeyId = process.env.S3_ACCESS_KEY_ID ?? "minio";
+const secretAccessKey =
+  process.env.S3_SECRET_ACCESS_KEY ?? "change-before-enabling-storage";
+
+if (production) {
+  const storageUrl = new URL(endpoint);
+  const localStorage = ["127.0.0.1", "localhost", "::1"].includes(
+    storageUrl.hostname,
+  );
+  if (storageUrl.protocol !== "https:" && !localStorage)
+    throw new Error("Remote private storage must use HTTPS");
+}
+
 const bucket = process.env.S3_BUCKET ?? "nova-gym-private";
 const client = new S3Client({
-  endpoint: process.env.S3_ENDPOINT ?? "http://127.0.0.1:9000",
+  endpoint,
   region: process.env.S3_REGION ?? "us-east-1",
   forcePathStyle: process.env.S3_FORCE_PATH_STYLE !== "false",
   credentials: {
-    accessKeyId: process.env.S3_ACCESS_KEY_ID ?? "minio",
-    secretAccessKey:
-      process.env.S3_SECRET_ACCESS_KEY ?? "change-before-enabling-storage",
+    accessKeyId,
+    secretAccessKey,
   },
 });
 

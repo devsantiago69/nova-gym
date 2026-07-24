@@ -24,7 +24,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cha
     select: {
       id: true,
       user: { select: { profile: { select: { storyDurationSeconds: true } } } },
-      attendance: { select: { startLatitude: true, startLongitude: true, startAccuracyMeters: true, challengeReviews: { where: { reviewerId: session.user.id }, select: { id: true } } } },
+      attendance: { select: { startLatitude: true, startLongitude: true, startAccuracyMeters: true, challengeReviews: { where: { reviewerId: session.user.id, challengeId }, select: { id: true } } } },
     },
   });
   if (!evidence || !evidence.attendance) return fail("EVIDENCE_UNAVAILABLE", "Esta evidencia no está disponible en tus retos compartidos", 404);

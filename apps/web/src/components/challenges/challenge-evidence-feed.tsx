@@ -8,7 +8,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock3,
-  Eye,
   Flame,
   Layers3,
   LockKeyhole,
@@ -45,6 +44,14 @@ export type ChallengeEvidence = {
   rejected: number;
   viewConsumed: boolean;
   storyDurationSeconds: number;
+  reviewStateByChallenge: Record<
+    string,
+    {
+      myVerdict: "CONFIRMED" | "REJECTED" | null;
+      confirmed: number;
+      rejected: number;
+    }
+  >;
 };
 
 type ViewerMode = "story" | "detail";
@@ -354,6 +361,20 @@ export function ChallengeEvidenceFeed({
                 (verdict === "REJECTED" ? 1 : 0) -
                 (item.myVerdict === "REJECTED" ? 1 : 0),
               viewConsumed: true,
+              reviewStateByChallenge: {
+                ...item.reviewStateByChallenge,
+                [item.challengeId]: {
+                  myVerdict: verdict,
+                  confirmed:
+                    item.confirmed +
+                    (verdict === "CONFIRMED" ? 1 : 0) -
+                    (item.myVerdict === "CONFIRMED" ? 1 : 0),
+                  rejected:
+                    item.rejected +
+                    (verdict === "REJECTED" ? 1 : 0) -
+                    (item.myVerdict === "REJECTED" ? 1 : 0),
+                },
+              },
             },
       ),
     );
@@ -810,36 +831,25 @@ export function ChallengeEvidenceFeed({
                     )}
                   </p>
                 </div>
-              ) : viewer.accessMode === "replay" ? (
-                <div className="mt-3 overflow-hidden rounded-2xl border border-violet-400/20 bg-gradient-to-r from-violet-400/10 to-cyan-400/5 p-4 text-sm">
-                  <div className="flex items-center gap-2 font-black">
-                    <Eye size={17} className="text-violet-300" />
-                    Historial compartido del reto
-                  </div>
-                  <p className="mt-1 text-xs muted">
-                    Ya revisaste esta evidencia. Puedes volver a verla durante
-                    una ventana temporal sin cambiar tu decisión.
-                  </p>
-                  <span className="mt-3 inline-flex rounded-full bg-slate-950/70 px-3 py-1.5 text-[10px] font-black text-lime-300">
-                    TU DECISIÓN ·{" "}
-                    {activeItem.myVerdict === "CONFIRMED"
-                      ? "SÍ CUENTA"
-                      : "REVISIÓN SOLICITADA"}
-                  </span>
-                </div>
               ) : (
                 <div className="mt-4">
                   <div className="mb-3">
                     <p className="text-[10px] font-black tracking-[.18em] text-lime-300">
-                      VERIFICACIÓN PRIVADA ·{" "}
+                      {viewer.accessMode === "replay"
+                        ? "DECISIÓN DEL RETO"
+                        : "VERIFICACIÓN PRIVADA"}{" "}
+                      ·{" "}
                       {Math.max(0, Math.ceil(remainingMs / 1000))} S
                     </p>
                     <h3 className="mt-1 text-lg font-black">
-                      ¿Esta evidencia enciende la racha?
+                      {viewer.accessMode === "replay"
+                        ? "Puedes actualizar tu decisión"
+                        : "¿Esta evidencia enciende la racha?"}
                     </h3>
                     <p className="mt-1 text-xs muted">
-                      Decide antes de que termine el tiempo. Si se cierra,
-                      podrás abrir otra ventana mientras tu voto siga pendiente.
+                      {viewer.accessMode === "replay"
+                        ? "El cambio se aplicará únicamente a este reto y reemplazará tu voto anterior."
+                        : "Decide antes de que termine el tiempo. Si se cierra, podrás abrir otra ventana mientras tu voto siga pendiente."}
                     </p>
                   </div>
                   <div className="grid grid-cols-2 gap-2.5">
@@ -863,7 +873,9 @@ export function ChallengeEvidenceFeed({
                       >
                         <Flame size={19} />
                       </span>
-                      <strong className="mt-3 block text-sm">Sí, cuenta</strong>
+                      <strong className="mt-3 block text-sm">
+                        Sí, suma al reto
+                      </strong>
                       <span
                         className={`mt-0.5 block text-[10px] ${activeItem.myVerdict === "CONFIRMED" ? "text-slate-800" : "text-slate-400"}`}
                       >
@@ -903,7 +915,9 @@ export function ChallengeEvidenceFeed({
                       Descarga, caché y clic derecho bloqueados.
                     </span>
                     <span className="shrink-0 text-[10px] font-black text-cyan-300">
-                      VISTA ÚNICA
+                      {viewer.accessMode === "replay"
+                        ? "DECISIÓN EDITABLE"
+                        : "VISTA ÚNICA"}
                     </span>
                   </div>
                 </div>

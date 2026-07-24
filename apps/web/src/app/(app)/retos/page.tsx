@@ -24,6 +24,7 @@ import {
   type PersonalChallengeConfiguration,
 } from "@/components/challenges/personal-challenge-templates";
 import { ChallengeSectionNav } from "@/components/challenges/challenge-section-nav";
+import { ChallengeAccordion } from "@/components/challenges/challenge-accordion";
 import { authOptions } from "@/lib/auth";
 import { syncUserActiveChallenges } from "@/modules/challenges/sync-progress";
 
@@ -156,8 +157,8 @@ export default async function Page({
         ]
       : [],
   );
-  const consumedAttendanceIds = new Set(
-    consumedViews.map((view) => view.attendanceId),
+  const consumedViewKeys = new Set(
+    consumedViews.map((view) => `${view.challengeId}:${view.attendanceId}`),
   );
 
   const friends = friendships
@@ -201,13 +202,26 @@ export default async function Page({
       )
         ? challengeLabels
         : [...challengeLabels, { id: challenge.id, name: challenge.name }];
+      const challengeReviews = event.attendance.challengeReviews.filter(
+        (review) => review.challengeId === challenge.id,
+      );
       const verdictByReviewer = new Map<string, "CONFIRMED" | "REJECTED">();
-      for (const review of event.attendance.challengeReviews) {
+      for (const review of challengeReviews) {
         const current = verdictByReviewer.get(review.reviewerId);
         if (!current || review.verdict === "REJECTED")
           verdictByReviewer.set(review.reviewerId, review.verdict);
       }
       const verdicts = [...verdictByReviewer.values()];
+      const reviewStateByChallenge = {
+        ...(existing?.reviewStateByChallenge ?? {}),
+        [challenge.id]: {
+          myVerdict: verdictByReviewer.get(currentUserId) ?? null,
+          confirmed: verdicts.filter((verdict) => verdict === "CONFIRMED").length,
+          rejected: verdicts.filter((verdict) => verdict === "REJECTED").length,
+        },
+      };
+      const primaryReviewState =
+        reviewStateByChallenge[existing?.challengeId ?? challenge.id];
       evidenceByAttendance.set(event.attendanceId, {
         evidenceKey: event.attendanceId,
         challengeId: existing?.challengeId ?? challenge.id,
@@ -238,11 +252,14 @@ export default async function Page({
             ? Number(event.attendance.startAccuracyMeters)
             : null,
         photos: event.attendance.photos,
-        myVerdict: verdictByReviewer.get(currentUserId) ?? null,
-        confirmed: verdicts.filter((verdict) => verdict === "CONFIRMED").length,
-        rejected: verdicts.filter((verdict) => verdict === "REJECTED").length,
-        viewConsumed: consumedAttendanceIds.has(event.attendanceId),
+        myVerdict: primaryReviewState?.myVerdict ?? null,
+        confirmed: primaryReviewState?.confirmed ?? 0,
+        rejected: primaryReviewState?.rejected ?? 0,
+        viewConsumed: consumedViewKeys.has(
+          `${existing?.challengeId ?? challenge.id}:${event.attendanceId}`,
+        ),
         storyDurationSeconds: event.user.profile?.storyDurationSeconds ?? 10,
+        reviewStateByChallenge,
       });
     }
   const evidence = [...evidenceByAttendance.values()].sort(
@@ -317,14 +334,15 @@ export default async function Page({
         />
       </div>
 
-      <section id="mis-retos" className="mb-9 scroll-mt-32">
-        <div className="mb-4 flex items-end justify-between gap-4">
-          <div>
-            <p className="text-xs font-bold text-orange-300">TU COMPETENCIA</p>
-            <h2 className="mt-1 text-2xl font-black">Mis retos</h2>
-          </div>
-          <span className="text-xs muted">Desliza para explorar</span>
-        </div>
+      <ChallengeAccordion
+        id="mis-retos"
+        kind="challenges"
+        eyebrow="TU COMPETENCIA"
+        title="Mis retos"
+        description="Progreso, equipo y entrenamientos de cada competencia."
+        count={challenges.length}
+        defaultOpen={Boolean(requestedChallengeId)}
+      >
         {challenges.length === 0 ? (
           <div className="card p-6 muted">
             Todavía no tienes retos. Agrega amigos desde Comunidad y crea el
@@ -381,6 +399,15 @@ export default async function Page({
                   ...item,
                   challengeId: challenge.id,
                   challengeName: challenge.name,
+                  myVerdict:
+                    item.reviewStateByChallenge[challenge.id]?.myVerdict ?? null,
+                  confirmed:
+                    item.reviewStateByChallenge[challenge.id]?.confirmed ?? 0,
+                  rejected:
+                    item.reviewStateByChallenge[challenge.id]?.rejected ?? 0,
+                  viewConsumed: consumedViewKeys.has(
+                    `${challenge.id}:${item.attendanceId}`,
+                  ),
                 }));
               return (
                 <article
@@ -571,21 +598,27 @@ export default async function Page({
             })}
           </div>
         )}
-      </section>
+      </ChallengeAccordion>
 
-      <PersonalChallengeTemplates initial={personalTemplates} />
-      <div id="crear-reto" className="scroll-mt-32">
+      <ChallengeAccordion
+        id="crear-reto"
+        kind="create"
+        eyebrow="NUEVA META"
+        title="Crear un reto"
+        description="Elige una opción rápida o diseña una experiencia personalizada."
+        count={invitations.length}
+        defaultOpen={Boolean(query.template || invitations.length)}
+      >
         <ChallengeActions
           categories={categories}
           friends={friends}
           invitations={invitations}
           {...(query.template ? { initialTemplateId: query.template } : {})}
         />
-      </div>
-      <Link
-        href="/retos/crear"
-        className="group mb-9 mt-5 flex items-center gap-4 overflow-hidden rounded-[30px] border border-cyan-400/20 bg-[radial-gradient(circle_at_10%_10%,rgba(34,211,238,.12),transparent_30%),linear-gradient(135deg,#101a2b,#090d16)] p-6 text-left sm:p-8"
-      >
+        <Link
+          href="/retos/crear"
+          className="group mt-4 flex items-center gap-4 overflow-hidden rounded-[26px] border border-cyan-400/20 bg-[radial-gradient(circle_at_10%_10%,rgba(34,211,238,.12),transparent_30%),linear-gradient(135deg,#101a2b,#090d16)] p-5 text-left sm:p-7"
+        >
         <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-cyan-300 text-slate-950">
           <Sparkles />
         </span>
@@ -599,20 +632,35 @@ export default async function Page({
           </small>
         </span>
         <Plus className="text-cyan-300 transition group-hover:rotate-90" />
-      </Link>
+        </Link>
+      </ChallengeAccordion>
 
-      <section id="explorar" className="scroll-mt-32">
-        <div className="mb-4 flex items-end justify-between gap-4">
-          <div>
-            <p className="text-xs font-bold text-cyan-300">EXPLORA</p>
-            <h2 className="mt-1 text-2xl font-black">Plantillas disponibles</h2>
+      <ChallengeAccordion
+        id="explorar"
+        kind="explore"
+        eyebrow="DESCUBRIR"
+        title="Explora nuevos retos"
+        description="Tus fórmulas guardadas y el catálogo oficial de Nova."
+        count={categories.length + personalTemplates.length}
+      >
+        {personalTemplates.length ? (
+          <div className="mb-5">
+            <PersonalChallengeTemplates initial={personalTemplates} />
           </div>
-          <a
+        ) : null}
+        <div className="mb-4 flex items-center justify-between gap-3 px-1">
+          <div>
+            <p className="text-[10px] font-black tracking-[.14em] text-cyan-300">
+              CATÁLOGO NOVA
+            </p>
+            <h3 className="mt-1 text-lg font-black">Plantillas disponibles</h3>
+          </div>
+          <Link
             href="/retos/plantillas"
-            className="text-sm font-black text-lime-300"
+            className="shrink-0 text-xs font-black text-lime-300"
           >
-            Ver catálogo completo →
-          </a>
+            Ver todo →
+          </Link>
         </div>
         <div className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:px-0">
           {categories.map((category) => (
@@ -642,7 +690,7 @@ export default async function Page({
             </article>
           ))}
         </div>
-      </section>
+      </ChallengeAccordion>
     </section>
   );
 }

@@ -7,7 +7,7 @@ import { authOptions } from "@/lib/auth";
 
 export default async function PlansPage() {
   const session = await getServerSession(authOptions);
-  const [subscription, unlimited] = await Promise.all([
+  const [subscription, plans] = await Promise.all([
     prisma.subscription.findFirst({
       where: {
         userId: session!.user.id,
@@ -17,16 +17,16 @@ export default async function PlansPage() {
       include: { plan: true },
       orderBy: { startsAt: "desc" },
     }),
-    prisma.plan.findFirst({
-      where: { status: "ACTIVE", code: "PRO" },
-      orderBy: { monthlyPrice: "desc" },
+    prisma.plan.findMany({
+      where: { status: "ACTIVE" },
+      orderBy: [{ monthlyPrice: "asc" }, { name: "asc" }],
     }),
   ]);
-  if (!unlimited)
+  if (!plans.length)
     return (
       <section className="card p-8 text-center">
         <h1 className="text-3xl font-black">
-          Nova Unlimited está en preparación
+          Los planes Nova están en preparación
         </h1>
         <p className="mt-2 muted">
           Vuelve pronto para conocer la experiencia completa.
@@ -48,17 +48,28 @@ export default async function PlansPage() {
           Elige cuánto quieres crecer.
         </h1>
         <p className="mt-2 muted">
-          Un plan gratuito para comenzar. Un plan ilimitado para no detenerte.
+          Compara las opciones creadas por administración y solicita el cambio
+          de forma segura mientras finalizamos la pasarela de pagos.
         </p>
       </div>
       <UpgradePlanExperience
+        currentPlanId={subscription?.plan.id ?? null}
         currentPlan={subscription?.plan.name ?? "Sin plan"}
-        unlimited={{
-          id: unlimited.id,
-          name: unlimited.name,
-          monthlyPrice: Number(unlimited.monthlyPrice),
-          currency: unlimited.currency,
-        }}
+        plans={plans.map((plan) => ({
+          id: plan.id,
+          name: plan.name,
+          code: plan.code,
+          description: plan.description,
+          monthlyPrice: Number(plan.monthlyPrice),
+          currency: plan.currency,
+          trialDays: plan.trialDays,
+          storageLimitMb: plan.storageLimitMb,
+          activeChallengeLimit: plan.activeChallengeLimit,
+          friendLimit: plan.friendLimit,
+          historyMonths: plan.historyMonths,
+          advancedStatsEnabled: plan.advancedStatsEnabled,
+          exportsEnabled: plan.exportsEnabled,
+        }))}
       />
     </main>
   );

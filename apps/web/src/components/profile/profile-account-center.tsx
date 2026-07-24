@@ -1,7 +1,7 @@
 "use client";
 
 import { signOut } from "next-auth/react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AtSign,
   Check,
@@ -14,6 +14,8 @@ import {
   LockKeyhole,
   Mail,
   MapPin,
+  Navigation,
+  NavigationOff,
   Play,
   Save,
   ShieldCheck,
@@ -37,6 +39,7 @@ type Settings = {
   storyDurationSeconds: number;
   timezone: string;
   showActiveChallenges: boolean;
+  attendanceLocationEnabled: boolean;
 };
 
 const languages: Array<{
@@ -64,7 +67,12 @@ const inputClass =
 
 export function ProfileAccountCenter({ initial }: { initial: Settings }) {
   const [tab, setTab] = useState<
-    "identity" | "appearance" | "language" | "stories" | "security"
+    | "identity"
+    | "privacy"
+    | "appearance"
+    | "language"
+    | "stories"
+    | "security"
   >("identity");
   const [settings, setSettings] = useState(initial);
   const [saving, setSaving] = useState(false);
@@ -78,6 +86,11 @@ export function ProfileAccountCenter({ initial }: { initial: Settings }) {
     confirmPassword: "",
   });
   const [showPasswords, setShowPasswords] = useState(false);
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("ajuste") === "privacidad")
+      setTab("privacy");
+  }, []);
 
   const passwordStrength = useMemo(() => {
     const value = passwords.newPassword;
@@ -150,6 +163,7 @@ export function ProfileAccountCenter({ initial }: { initial: Settings }) {
 
   const tabs = [
     ["identity", UserRound, "Mi identidad", "Perfil social"],
+    ["privacy", ShieldCheck, "Privacidad", "Ubicación y evidencia"],
     ["appearance", LetterText, "Apariencia", "Tipografía del app"],
     ["language", Languages, "Idioma y región", "Tu experiencia"],
     ["stories", Play, "Mis historias", "Duración y reproducción"],
@@ -157,22 +171,28 @@ export function ProfileAccountCenter({ initial }: { initial: Settings }) {
   ] as const;
 
   return (
-    <section className="mt-7 overflow-hidden rounded-[30px] border border-slate-700 bg-gradient-to-br from-slate-900 via-slate-900 to-cyan-950/20 shadow-[0_24px_80px_rgba(0,0,0,.2)]">
-      <header className="border-b border-slate-800 p-5 sm:p-7">
+    <section className="mt-7 overflow-hidden rounded-[32px] border border-white/[.09] bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,.1),transparent_34%),linear-gradient(145deg,rgba(15,23,42,.94),rgba(2,6,23,.9))] shadow-[0_28px_90px_rgba(0,0,0,.24)] backdrop-blur-xl">
+      <header className="relative overflow-hidden border-b border-white/[.07] p-5 sm:p-7">
+        <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full bg-cyan-300/10 blur-3xl" />
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-[10px] font-black tracking-[.18em] text-cyan-300">
-              CENTRO DE CUENTA
-            </p>
-            <h2 className="mt-1 text-2xl font-black sm:text-3xl">
-              Tu perfil, a tu manera.
-            </h2>
-            <p className="mt-2 text-sm muted">
-              Controla cómo te presentas, el idioma de Nova Gym y la seguridad
-              de tu cuenta.
-            </p>
+          <div className="relative flex items-start gap-4">
+            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-cyan-200/20 bg-cyan-300/10 text-cyan-200 shadow-[0_0_28px_rgba(34,211,238,.12)]">
+              <UserRound size={23} />
+            </span>
+            <div>
+              <p className="text-[10px] font-black tracking-[.18em] text-cyan-300">
+                CENTRO DE CUENTA
+              </p>
+              <h2 className="mt-1 text-2xl font-black sm:text-3xl">
+                Tu perfil, a tu manera.
+              </h2>
+              <p className="mt-2 max-w-xl text-sm leading-relaxed muted">
+                Personaliza tu identidad, la experiencia de Nova y la seguridad
+                de tu cuenta desde un solo lugar.
+              </p>
+            </div>
           </div>
-          <span className="inline-flex items-center gap-2 rounded-full bg-lime-400/10 px-3 py-2 text-xs font-black text-lime-300">
+          <span className="relative inline-flex items-center gap-2 rounded-full border border-lime-300/15 bg-lime-400/[.08] px-3 py-2 text-[10px] font-black tracking-wide text-lime-300">
             <ShieldCheck size={15} />
             DATOS PROTEGIDOS
           </span>
@@ -320,6 +340,88 @@ export function ProfileAccountCenter({ initial }: { initial: Settings }) {
                 {saving ? "Guardando…" : "Guardar mi perfil"}
               </button>
             </form>
+          )}
+
+          {tab === "privacy" && (
+            <div className="space-y-7">
+              <div>
+                <p className="text-xs font-black text-cyan-300">
+                  PRIVACIDAD DE ASISTENCIA
+                </p>
+                <h3 className="mt-1 text-2xl font-black">
+                  Tú eliges qué acompaña tu evidencia
+                </h3>
+                <p className="mt-1 text-sm leading-relaxed muted">
+                  La fotografía sigue siendo obligatoria para validar el
+                  entrenamiento. Compartir el punto de ubicación es totalmente
+                  opcional.
+                </p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => update("attendanceLocationEnabled", true)}
+                  className={`relative rounded-[24px] border p-5 text-left transition ${settings.attendanceLocationEnabled ? "border-lime-300 bg-[radial-gradient(circle_at_top_right,rgba(163,230,53,.2),transparent_42%),rgba(163,230,53,.07)] shadow-[0_0_32px_rgba(163,230,53,.08)]" : "border-slate-700 bg-slate-950/55 hover:border-lime-300/50"}`}
+                >
+                  <span className={`grid h-12 w-12 place-items-center rounded-2xl ${settings.attendanceLocationEnabled ? "bg-lime-300 text-slate-950" : "bg-slate-800 text-slate-400"}`}>
+                    <Navigation size={22} />
+                  </span>
+                  <strong className="mt-4 block">Añadir ubicación</strong>
+                  <small className="mt-1 block leading-relaxed text-slate-400">
+                    Solicita un punto al comenzar y otro al finalizar. Nunca en
+                    segundo plano.
+                  </small>
+                  {settings.attendanceLocationEnabled ? (
+                    <span className="absolute right-4 top-4 grid h-7 w-7 place-items-center rounded-full bg-lime-300 text-slate-950">
+                      <Check size={15} />
+                    </span>
+                  ) : null}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => update("attendanceLocationEnabled", false)}
+                  className={`relative rounded-[24px] border p-5 text-left transition ${!settings.attendanceLocationEnabled ? "border-cyan-300 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,.18),transparent_42%),rgba(34,211,238,.06)] shadow-[0_0_32px_rgba(34,211,238,.08)]" : "border-slate-700 bg-slate-950/55 hover:border-cyan-300/50"}`}
+                >
+                  <span className={`grid h-12 w-12 place-items-center rounded-2xl ${!settings.attendanceLocationEnabled ? "bg-cyan-300 text-slate-950" : "bg-slate-800 text-slate-400"}`}>
+                    <NavigationOff size={22} />
+                  </span>
+                  <strong className="mt-4 block">Entrenar sin ubicación</strong>
+                  <small className="mt-1 block leading-relaxed text-slate-400">
+                    Nova guardará tus fotos y asistencia, pero no solicitará ni
+                    almacenará coordenadas.
+                  </small>
+                  {!settings.attendanceLocationEnabled ? (
+                    <span className="absolute right-4 top-4 grid h-7 w-7 place-items-center rounded-full bg-cyan-300 text-slate-950">
+                      <Check size={15} />
+                    </span>
+                  ) : null}
+                </button>
+              </div>
+
+              <div className="flex gap-3 rounded-2xl border border-white/[.07] bg-slate-950/55 p-4">
+                <ShieldCheck className="shrink-0 text-lime-300" size={21} />
+                <div>
+                  <strong className="text-sm">Una decisión reversible</strong>
+                  <p className="mt-1 text-xs leading-relaxed text-slate-400">
+                    Si el navegador bloqueó el permiso, puedes continuar sin
+                    ubicación. Al activarla de nuevo, el navegador te indicará
+                    si debes cambiar el permiso desde la barra de dirección.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => void saveSettings()}
+                className="btn w-full gap-2 py-4 sm:w-auto sm:px-7"
+              >
+                <Save size={18} />
+                {saving ? "Guardando…" : "Guardar privacidad"}
+              </button>
+            </div>
           )}
 
           {tab === "appearance" && (

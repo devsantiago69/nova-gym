@@ -38,6 +38,7 @@ export default async function Page() {
         localeAuto: true,
         storyDurationSeconds: true,
         avatarKey: true,
+        attendanceLocationEnabled: true,
       },
     }),
     prisma.challengeScoreEvent.findMany({
@@ -177,6 +178,7 @@ export default async function Page() {
       <AttendanceManager
         locale={locale}
         storyDurationSeconds={storyDurationSeconds}
+        locationEnabled={profile?.attendanceLocationEnabled === true}
         canChooseFromDevice={canChooseAttendancePhotoFromDevice(activePlan?.code)}
         planName={activePlan?.name ?? "Free"}
         initialRestDays={restDays.map((item) => item.localDate.toISOString().slice(0, 10))}

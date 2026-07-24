@@ -1081,6 +1081,7 @@ model UserProfile {
   timezone             String   @default("America/Bogota") @db.VarChar(80)
   currency             String   @default("COP") @db.Char(3)
   showActiveChallenges Boolean  @default(true) @map("show_active_challenges")
+  attendanceLocationEnabled Boolean? @map("attendance_location_enabled")
   createdAt            DateTime @default(now()) @map("created_at")
   updatedAt            DateTime @updatedAt @map("updated_at")
   user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)

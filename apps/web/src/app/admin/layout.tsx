@@ -16,7 +16,12 @@ const links = [
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
-  if (!session) redirect("/login");
+  if (
+    !session?.user.id ||
+    session.user.status === "INACTIVE" ||
+    session.user.status === "SUSPENDED"
+  )
+    redirect("/login");
   if (session.user.role !== "ADMIN") redirect("/inicio");
   if (session.user.status === "PENDING_PASSWORD_CHANGE") redirect("/cambiar-contrasena");
 

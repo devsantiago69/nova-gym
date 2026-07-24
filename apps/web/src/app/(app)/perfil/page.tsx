@@ -3,10 +3,14 @@ import Link from "next/link";
 import QRCode from "qrcode";
 import {
   ArrowRight,
+  BadgeCheck,
   CalendarCheck,
+  Check,
   Crown,
   Flame,
+  HardDrive,
   Medal,
+  MoveRight,
   QrCode,
   Settings,
   Trophy,
@@ -44,25 +48,30 @@ export default async function Page() {
   const timelineStart = new Date(
     Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 5, 1),
   );
-  const [fitness, timelineAttendances, timelineRestDays] = await Promise.all([
-    publicFitnessStats(user.id),
-    prisma.attendance.findMany({
-      where: {
-        userId: user.id,
-        status: "COMPLETED",
-        invalidatedAt: null,
-        localDate: { gte: timelineStart },
-      },
-      select: { localDate: true },
-      orderBy: { localDate: "asc" },
-    }),
-    prisma.challengeRestDay.findMany({
-      where: { userId: user.id, localDate: { gte: timelineStart } },
-      select: { localDate: true },
-      distinct: ["localDate"],
-      orderBy: { localDate: "asc" },
-    }),
-  ]);
+  const [fitness, timelineAttendances, timelineRestDays, availablePlans] =
+    await Promise.all([
+      publicFitnessStats(user.id),
+      prisma.attendance.findMany({
+        where: {
+          userId: user.id,
+          status: "COMPLETED",
+          invalidatedAt: null,
+          localDate: { gte: timelineStart },
+        },
+        select: { localDate: true },
+        orderBy: { localDate: "asc" },
+      }),
+      prisma.challengeRestDay.findMany({
+        where: { userId: user.id, localDate: { gte: timelineStart } },
+        select: { localDate: true },
+        distinct: ["localDate"],
+        orderBy: { localDate: "asc" },
+      }),
+      prisma.plan.findMany({
+        where: { status: "ACTIVE" },
+        orderBy: [{ monthlyPrice: "asc" }, { name: "asc" }],
+      }),
+    ]);
   const attendanceDates = timelineAttendances.map((row) =>
     row.localDate.toISOString().slice(0, 10),
   );
@@ -109,6 +118,28 @@ export default async function Page() {
     ],
     [Users, "Amigos", String(fitness.friends), "text-violet-400"],
   ] as const;
+  const currentPlan = user.subscriptions[0]?.plan;
+  const planVisual =
+    Number(currentPlan?.monthlyPrice ?? 0) >= 29_900
+      ? {
+          badge:
+            "border-yellow-200/40 bg-gradient-to-r from-yellow-300/20 via-lime-300/15 to-cyan-300/15 text-yellow-100 shadow-[0_0_30px_rgba(250,204,21,.2)]",
+          glow: "bg-yellow-300/45",
+          icon: "text-yellow-200",
+        }
+      : Number(currentPlan?.monthlyPrice ?? 0) > 0
+        ? {
+            badge:
+              "border-cyan-200/40 bg-gradient-to-r from-cyan-300/20 via-violet-300/15 to-blue-300/15 text-cyan-100 shadow-[0_0_30px_rgba(34,211,238,.2)]",
+            glow: "bg-cyan-300/45",
+            icon: "text-cyan-200",
+          }
+        : {
+            badge:
+              "border-lime-200/25 bg-gradient-to-r from-lime-300/12 to-emerald-300/[.07] text-lime-100 shadow-[0_0_24px_rgba(163,230,53,.12)]",
+            glow: "bg-lime-300/35",
+            icon: "text-lime-200",
+          };
   return (
     <section className="pb-8">
       <section className="relative isolate overflow-hidden rounded-[34px] border border-white/10 bg-slate-900/80 shadow-[0_30px_100px_rgba(0,0,0,.28)] backdrop-blur-xl">
@@ -124,8 +155,12 @@ export default async function Page() {
           <div className="mt-5">
             <div className="flex flex-wrap items-center justify-center gap-2">
               <h1 className="text-3xl font-black sm:text-5xl">{name}</h1>
-              <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-[9px] font-black tracking-wide text-cyan-200">
-                PERFIL ACTIVO
+              <span
+                title="Perfil verificado"
+                aria-label="Perfil verificado"
+                className="grid h-8 w-8 place-items-center rounded-full border border-cyan-200/35 bg-cyan-300/10 text-cyan-200 shadow-[0_0_24px_rgba(34,211,238,.2)]"
+              >
+                <BadgeCheck size={19} fill="currentColor" className="text-cyan-200 [&>path:last-child]:text-slate-950" />
               </span>
             </div>
             <p className="mt-1 text-sm text-slate-400">@{user.username}</p>
@@ -140,8 +175,14 @@ export default async function Page() {
               </p>
             )}
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-              <span className="rounded-full bg-white/[.06] px-3 py-2 text-[11px] font-black text-slate-300">
-                PLAN {user.subscriptions[0]?.plan.name ?? "SIN PLAN"}
+              <span
+                className={`relative isolate inline-flex items-center gap-2 overflow-hidden rounded-full border px-4 py-2 text-[11px] font-black tracking-wide ${planVisual.badge}`}
+              >
+                <i
+                  className={`absolute -left-2 top-1/2 -z-10 h-8 w-8 -translate-y-1/2 animate-pulse rounded-full blur-xl ${planVisual.glow}`}
+                />
+                <Crown size={14} className={planVisual.icon} />
+                {currentPlan?.name ?? "Sin plan"}
               </span>
               {fitness.streak > 0 ? (
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-400/10 px-3 py-2 text-[11px] font-black text-orange-300">
@@ -187,28 +228,101 @@ export default async function Page() {
           </div>
         </div>
       </section>
-      {user.subscriptions[0]?.plan.code !== "PRO" ? (
-        <Link
-          href="/planes"
-          className="group mt-5 flex items-center gap-4 overflow-hidden rounded-[26px] border border-violet-400/20 bg-gradient-to-r from-violet-400/10 via-slate-900 to-lime-400/[.08] p-5 transition hover:border-lime-300/35"
-        >
-          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-violet-400 to-lime-300 text-slate-950">
-            <Crown size={22} />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="text-[10px] font-black tracking-[.14em] text-lime-300">
-              NOVA UNLIMITED
+      <section className="mt-5 overflow-hidden rounded-[30px] border border-white/[.08] bg-[radial-gradient(circle_at_top_right,rgba(163,230,53,.11),transparent_34%),rgba(10,18,32,.76)] p-5 shadow-[0_22px_65px_rgba(0,0,0,.18)] backdrop-blur-xl sm:p-6">
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <p className="text-[10px] font-black tracking-[.16em] text-lime-300">
+              PLANES NOVA
+            </p>
+            <h2 className="mt-1 text-2xl font-black">Crece a tu ritmo</h2>
+            <p className="mt-1 text-sm muted">
+              Compara los planes configurados por Nova.
+            </p>
+          </div>
+          <Link
+            href="/planes"
+            className="shrink-0 text-xs font-black text-lime-300"
+          >
+            Ver todos →
+          </Link>
+        </div>
+        {availablePlans.length > 1 ? (
+          <div className="mt-4 flex items-center justify-between rounded-2xl border border-cyan-300/15 bg-cyan-300/[.05] px-3 py-2.5 sm:hidden">
+            <span className="text-[10px] font-black tracking-wide text-cyan-100">
+              DESLIZA PARA VER {availablePlans.length} OPCIONES
             </span>
-            <strong className="mt-0.5 block text-lg">
-              Lleva tu experiencia al siguiente nivel
-            </strong>
-            <small className="block text-slate-400">
-              Retos, amigos, estadísticas e historial sin límites.
-            </small>
-          </span>
-          <ArrowRight className="shrink-0 text-lime-300 transition group-hover:translate-x-1" />
-        </Link>
-      ) : null}
+            <span className="flex items-center gap-2 text-cyan-300">
+              <span className="flex gap-1">
+                {availablePlans.map((plan, index) => (
+                  <i
+                    key={plan.id}
+                    className={`h-1.5 rounded-full ${index === 0 ? "w-5 bg-cyan-300" : "w-1.5 bg-slate-600"}`}
+                  />
+                ))}
+              </span>
+              <MoveRight size={18} className="animate-pulse" />
+            </span>
+          </div>
+        ) : null}
+        <div className="relative -mr-5 mt-4 sm:mr-0">
+          <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-12 bg-gradient-to-l from-[#0a1220] to-transparent sm:hidden" />
+          <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-3 pr-14 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-3 sm:overflow-visible sm:pr-0">
+          {availablePlans.map((plan) => {
+            const current = user.subscriptions[0]?.plan.id === plan.id;
+            const price = new Intl.NumberFormat("es-CO", {
+              style: "currency",
+              currency: plan.currency,
+              maximumFractionDigits: 0,
+            }).format(Number(plan.monthlyPrice));
+            return (
+              <Link
+                href="/planes"
+                key={plan.id}
+                className={`relative min-w-[76vw] snap-start overflow-hidden rounded-[26px] border p-5 transition sm:min-w-0 ${current ? "border-lime-300/40 bg-lime-300/[.08] shadow-[0_0_30px_rgba(163,230,53,.08)]" : "border-white/[.07] bg-slate-950/55 hover:border-cyan-300/30"}`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <span
+                    className={`grid h-11 w-11 place-items-center rounded-2xl ${current ? "bg-lime-300 text-slate-950" : "bg-gradient-to-br from-violet-300 to-cyan-300 text-slate-950"}`}
+                  >
+                    {current ? <Check size={20} /> : <Crown size={20} />}
+                  </span>
+                  <span className="rounded-full border border-white/10 px-2.5 py-1 text-[9px] font-black text-slate-300">
+                    {current ? "TU PLAN" : plan.code}
+                  </span>
+                </div>
+                <h3 className="mt-4 text-xl font-black">{plan.name}</h3>
+                <p className="mt-1 text-2xl font-black text-lime-300">
+                  {Number(plan.monthlyPrice) === 0 ? "Gratis" : price}
+                  {Number(plan.monthlyPrice) > 0 ? (
+                    <small className="ml-1 text-[10px] font-bold text-slate-500">
+                      /mes
+                    </small>
+                  ) : null}
+                </p>
+                <div className="mt-4 flex items-center justify-between text-[10px] font-bold text-slate-400">
+                  <span className="inline-flex items-center gap-1">
+                    <Trophy size={13} className="text-orange-300" />
+                    {plan.activeChallengeLimit >= 10000
+                      ? "Retos ilimitados"
+                      : `${plan.activeChallengeLimit} retos`}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <HardDrive size={13} className="text-cyan-300" />
+                    {plan.storageLimitMb >= 1024
+                      ? `${Math.round(plan.storageLimitMb / 1024)} GB`
+                      : `${plan.storageLimitMb} MB`}
+                  </span>
+                </div>
+                <span className="mt-4 flex items-center justify-between border-t border-white/[.06] pt-3 text-xs font-black text-slate-200">
+                  {current ? "Plan activo" : "Conocer este plan"}
+                  <ArrowRight size={16} className="text-lime-300" />
+                </span>
+              </Link>
+            );
+          })}
+          </div>
+        </div>
+      </section>
       <ProfileSocialHub
         qrSvg={qrSvg}
         shareUrl={shareUrl}
@@ -241,6 +355,8 @@ export default async function Page() {
             storyDurationSeconds: user.profile?.storyDurationSeconds ?? 10,
             timezone: user.profile?.timezone ?? "America/Bogota",
             showActiveChallenges: user.profile?.showActiveChallenges ?? true,
+            attendanceLocationEnabled:
+              user.profile?.attendanceLocationEnabled ?? false,
           }}
         />
       </div>

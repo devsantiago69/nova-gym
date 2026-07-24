@@ -326,6 +326,16 @@ export default async function ClubPage({
           </div>
         </div>
       </header>
+      <div id="administrar-club" className="scroll-mt-28">
+        <ClubDetailActions
+          clubId={club.id}
+          membership={mine ? { status: mine.status, role: mine.role } : null}
+          requests={requests}
+          members={adminMembers}
+          friends={inviteFriends}
+          settings={clubSettings}
+        />
+      </div>
       {club.latitude && club.longitude ? (
         <section className="flex flex-col gap-4 rounded-[28px] border border-lime-300/20 bg-gradient-to-r from-lime-300/[.08] to-cyan-300/[.05] p-5 sm:flex-row sm:items-center">
           <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-lime-300 text-slate-950">
@@ -455,14 +465,6 @@ export default async function ClubPage({
               </span>
             </div>
           </section>
-          <ClubDetailActions
-            clubId={club.id}
-            membership={mine ? { status: mine.status, role: mine.role } : null}
-            requests={requests}
-            members={adminMembers}
-            friends={inviteFriends}
-            settings={clubSettings}
-          />
         </aside>
       </div>
     </main>
