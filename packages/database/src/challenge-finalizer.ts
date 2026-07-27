@@ -98,7 +98,7 @@ export async function finalizeExpiredChallenges(
   for (const { id } of expired) {
     const closed = await prisma.$transaction(
       async (tx) => {
-        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`challenge-finalize:${id}`}))`;
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`challenge-finalize:${id}`}))`;
         const challenge = await tx.challenge.findFirst({
           where: { id, status: "ACTIVE", endsAt: { lte: now } },
           include: {

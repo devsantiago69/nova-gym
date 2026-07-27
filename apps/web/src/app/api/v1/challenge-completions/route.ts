@@ -194,7 +194,7 @@ export async function POST(request: Request) {
         ? "SELF_REPORTED"
         : "AUTOMATIC");
     const completion = await prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`completion:${challenge.id}:${session.user.id}:${logicalDate.toISOString()}`}))`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`completion:${challenge.id}:${session.user.id}:${logicalDate.toISOString()}`}))`;
       const duplicate = await tx.challengeCompletion.findUnique({
         where: { idempotencyKey },
       });
