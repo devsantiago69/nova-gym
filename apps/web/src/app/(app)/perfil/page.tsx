@@ -20,8 +20,13 @@ import { prisma } from "@gymchallenge/database";
 import { ProfileSocialHub } from "@/components/profile/profile-social-hub";
 import { ProfileAccountCenter } from "@/components/profile/profile-account-center";
 import { ProfileAvatarEditor } from "@/components/profile/profile-avatar-editor";
+import { ProfileLevelCard } from "@/components/profile/profile-level-card";
+import { StreakClaimWidget } from "@/components/profile/streak-claim-widget";
+import { AdWatchWidget } from "@/components/gamification/ad-watch-widget";
 import { authOptions } from "@/lib/auth";
 import { publicFitnessStats } from "@/modules/profile/public-stats";
+import { gamificationSummary } from "@/modules/gamification/summary";
+import { XP_STREAK_CLAIM } from "@/modules/gamification/constants";
 
 export default async function Page() {
   const session = await getServerSession(authOptions);
@@ -48,7 +53,7 @@ export default async function Page() {
   const timelineStart = new Date(
     Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 5, 1),
   );
-  const [fitness, timelineAttendances, timelineRestDays, availablePlans] =
+  const [fitness, timelineAttendances, timelineRestDays, availablePlans, gamification] =
     await Promise.all([
       publicFitnessStats(user.id),
       prisma.attendance.findMany({
@@ -71,6 +76,7 @@ export default async function Page() {
         where: { status: "ACTIVE" },
         orderBy: [{ monthlyPrice: "asc" }, { name: "asc" }],
       }),
+      gamificationSummary(user.id),
     ]);
   const attendanceDates = timelineAttendances.map((row) =>
     row.localDate.toISOString().slice(0, 10),
@@ -228,6 +234,23 @@ export default async function Page() {
           </div>
         </div>
       </section>
+      <div className="mt-5 space-y-4">
+        <ProfileLevelCard
+          level={gamification.level}
+          nextLevel={gamification.nextLevel}
+          progress={gamification.progress}
+          totalXp={gamification.totalXp}
+          rank={gamification.rank}
+        />
+        {gamification.streak.claimableTiers > 0 && (
+          <StreakClaimWidget
+            claimableTiers={gamification.streak.claimableTiers}
+            streakLength={gamification.streak.length}
+            xpPerTier={XP_STREAK_CLAIM}
+          />
+        )}
+        <AdWatchWidget />
+      </div>
       <section className="mt-5 overflow-hidden rounded-[30px] border border-white/[.08] bg-[radial-gradient(circle_at_top_right,rgba(163,230,53,.11),transparent_34%),rgba(10,18,32,.76)] p-5 shadow-[0_22px_65px_rgba(0,0,0,.18)] backdrop-blur-xl sm:p-6">
         <div className="flex items-end justify-between gap-4">
           <div>

@@ -50,6 +50,15 @@ enum PointMovementType {
   CHALLENGE_BONUS_REVOKED
 }
 
+enum XpMovementType {
+  ATTENDANCE_EARNED
+  CHALLENGE_COMPLETED
+  STREAK_CLAIM
+  AD_WATCHED
+  DAILY_USAGE
+  ADMIN_ADJUSTMENT
+}
+
 enum FriendshipStatus {
   PENDING
   ACCEPTED
@@ -297,6 +306,10 @@ model User {
   clubSessionParticipations  ClubSessionParticipant[]
   routines                   Routine[]
   workoutSessions            WorkoutSession[]
+  xpMovements                XpLedger[]                  @relation("XpOwner")
+  xpMovementsCreated         XpLedger[]                  @relation("XpActor")
+  streakClaims               StreakClaim[]
+  adWatchEvents              AdWatchEvent[]
 
   @@index([status])
   @@map("users")
@@ -1068,23 +1081,23 @@ model PointLedger {
 }
 
 model UserProfile {
-  id                   String   @id @default(uuid()) @db.Uuid
-  userId               String   @unique @map("user_id") @db.Uuid
-  firstName            String   @map("first_name") @db.VarChar(100)
-  lastName             String   @map("last_name") @db.VarChar(100)
-  avatarKey            String?  @map("avatar_key") @db.VarChar(500)
-  bio                  String?  @db.VarChar(280)
-  locale               String   @default("es") @db.VarChar(10)
-  localeAuto           Boolean  @default(true) @map("locale_auto")
-  fontFamily           String   @default("nova") @map("font_family") @db.VarChar(30)
-  storyDurationSeconds Int      @default(10) @map("story_duration_seconds")
-  timezone             String   @default("America/Bogota") @db.VarChar(80)
-  currency             String   @default("COP") @db.Char(3)
-  showActiveChallenges Boolean  @default(true) @map("show_active_challenges")
+  id                        String   @id @default(uuid()) @db.Uuid
+  userId                    String   @unique @map("user_id") @db.Uuid
+  firstName                 String   @map("first_name") @db.VarChar(100)
+  lastName                  String   @map("last_name") @db.VarChar(100)
+  avatarKey                 String?  @map("avatar_key") @db.VarChar(500)
+  bio                       String?  @db.VarChar(280)
+  locale                    String   @default("es") @db.VarChar(10)
+  localeAuto                Boolean  @default(true) @map("locale_auto")
+  fontFamily                String   @default("nova") @map("font_family") @db.VarChar(30)
+  storyDurationSeconds      Int      @default(10) @map("story_duration_seconds")
+  timezone                  String   @default("America/Bogota") @db.VarChar(80)
+  currency                  String   @default("COP") @db.Char(3)
+  showActiveChallenges      Boolean  @default(true) @map("show_active_challenges")
   attendanceLocationEnabled Boolean? @map("attendance_location_enabled")
-  createdAt            DateTime @default(now()) @map("created_at")
-  updatedAt            DateTime @updatedAt @map("updated_at")
-  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt                 DateTime @default(now()) @map("created_at")
+  updatedAt                 DateTime @updatedAt @map("updated_at")
+  user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_profiles")
 }
@@ -1171,4 +1184,65 @@ model AuditLog {
   @@index([entityType, entityId])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+model XpLedger {
+  id             String         @id @default(uuid()) @db.Uuid
+  userId         String         @map("user_id") @db.Uuid
+  amount         Int
+  type           XpMovementType
+  sourceType     String         @map("source_type") @db.VarChar(80)
+  sourceId       String?        @map("source_id") @db.Uuid
+  description    String?        @db.VarChar(500)
+  logicalDate    DateTime?      @map("logical_date") @db.Date
+  actorId        String?        @map("actor_id") @db.Uuid
+  idempotencyKey String         @unique @map("idempotency_key") @db.VarChar(160)
+  createdAt      DateTime       @default(now()) @map("created_at")
+  user           User           @relation("XpOwner", fields: [userId], references: [id], onDelete: Cascade)
+  actor          User?          @relation("XpActor", fields: [actorId], references: [id])
+
+  @@index([userId, createdAt])
+  @@map("xp_ledger")
+}
+
+model LevelDefinition {
+  id          String   @id @default(uuid()) @db.Uuid
+  level       Int      @unique
+  title       String   @db.VarChar(60)
+  xpThreshold Int      @map("xp_threshold")
+  icon        String?  @db.VarChar(60)
+  colorFrom   String?  @map("color_from") @db.VarChar(20)
+  colorTo     String?  @map("color_to") @db.VarChar(20)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([xpThreshold])
+  @@map("level_definitions")
+}
+
+model StreakClaim {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  tier        Int
+  streakStart DateTime @map("streak_start") @db.Date
+  xpAmount    Int      @map("xp_amount")
+  claimedAt   DateTime @default(now()) @map("claimed_at")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, streakStart, tier])
+  @@index([userId, claimedAt])
+  @@map("streak_claims")
+}
+
+model AdWatchEvent {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  slot           String   @db.VarChar(60)
+  xpAmount       Int      @map("xp_amount")
+  watchedSeconds Int      @map("watched_seconds")
+  createdAt      DateTime @default(now()) @map("created_at")
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("ad_watch_events")
 }

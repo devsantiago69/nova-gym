@@ -1,0 +1,26 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e4]:
+      - strong [ref=e13]: Nova Gym
+      - generic [ref=e14]:
+        - paragraph [ref=e15]: BIENVENIDO DE NUEVO
+        - heading "Inicia sesión" [level=2] [ref=e16]
+        - paragraph [ref=e17]: Continúa construyendo tu mejor versión.
+        - generic [ref=e18]:
+          - generic [ref=e19]:
+            - text: Usuario
+            - generic [ref=e20]:
+              - generic [ref=e24]: "@"
+              - textbox "Usuario @" [ref=e25]:
+                - /placeholder: santiago
+          - generic [ref=e26]:
+            - text: Contraseña
+            - textbox "Contraseña" [ref=e32]:
+              - /placeholder: Tu contraseña
+        - button "Entrar a Nova Gym" [ref=e33] [cursor=pointer]
+        - generic [ref=e34]: Nuevo aquí
+        - link "Crear mi cuenta gratis" [ref=e38] [cursor=pointer]:
+          - /url: /registro
+        - paragraph [ref=e42]: Acceso inmediato · Contraseña segura automática
+        - paragraph [ref=e43]: Acceso protegido · Tus fotografías y ubicación son privadas
+  - alert [ref=e44]

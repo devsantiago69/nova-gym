@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
-import { Activity, ArrowLeft, Dumbbell, LayoutDashboard, ShieldCheck, Sparkles, UsersRound, WalletCards } from "lucide-react";
+import { Activity, ArrowLeft, Dumbbell, Gem, LayoutDashboard, ShieldCheck, Sparkles, UsersRound, WalletCards } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { LogoutButton } from "@/components/auth/logout-button";
 
@@ -12,6 +12,7 @@ const links = [
   { href: "/admin/asistencias", label: "Asistencias", icon: Activity },
   { href: "/admin/categorias-retos", label: "Retos", icon: Dumbbell },
   { href: "/admin/plantillas-retos", label: "Plantillas", icon: Sparkles },
+  { href: "/admin/niveles", label: "Niveles", icon: Gem },
 ] as const;
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {

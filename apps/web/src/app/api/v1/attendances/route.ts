@@ -49,7 +49,7 @@ export async function POST(request: Request) {
     const attendanceId = crypto.randomUUID();
     const key = `attendance/${session.user.id}/${attendanceId}/start.webp`;
     await putPrivateObject(key, image.body, image.mimeType);
-    const attendance = await prisma.attendance.create({ data: { id: attendanceId, userId: session.user.id, localDate: date, timezone: profile.timezone, startLatitude:location?.latitude ?? null,startLongitude:location?.longitude ?? null,startAccuracyMeters:location?.accuracy ?? null,photos: { create: { ownerId: session.user.id, type: "START", objectKey: key, mimeType: image.mimeType, sizeBytes: image.size, checksum: image.checksum, width: image.width, height: image.height } } } });
+    const attendance = await prisma.attendance.create({ data: { id: attendanceId, userId: session.user.id, localDate: date, timezone: profile.timezone, startLatitude:location?.latitude ?? null,startLongitude:location?.longitude ?? null,startAccuracyMeters:location?.accuracy ?? null,photos: { create: { ownerId: session.user.id, type: "START", objectKey: key, mimeType: image.mimeType, sizeBytes: image.size, checksum: image.checksum, width: image.width, height: image.height } } }, include: { photos: { select: { id: true, type: true } }, pointMovements: { select: { amount: true } } } });
     return ok(attendance, "Entrenamiento iniciado", 201);
   } catch (error) {
     if (error instanceof DomainError) return fail(error.code, error.message, 422);

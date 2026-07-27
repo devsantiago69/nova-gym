@@ -1,22 +1,37 @@
 import type { NextConfig } from "next";
 
+// Dominios de Google AdSense. Esta lista no es exhaustiva ni estable: una vez
+// se configuren las credenciales reales (NEXT_PUBLIC_ADSENSE_CLIENT_ID) y los
+// anuncios intenten cargar en producción, revisa la consola del navegador por
+// violaciones de CSP y añade los subdominios *.googlesyndication.com /
+// *.doubleclick.net / *.google.com que falten.
+const adsenseScriptSrc =
+  "https://pagead2.googlesyndication.com https://googleads.g.doubleclick.net https://www.googletagservices.com";
+const adsenseFrameSrc =
+  "https://googleads.g.doubleclick.net https://tpc.googlesyndication.com https://www.google.com";
+const adsenseImgSrc =
+  "https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.gstatic.com https://*.doubleclick.net";
+const adsenseConnectSrc =
+  "https://pagead2.googlesyndication.com https://googleads.g.doubleclick.net";
+
 const scriptPolicy =
   process.env.NODE_ENV === "production"
-    ? "script-src 'self' 'unsafe-inline'"
-    : "script-src 'self' 'unsafe-inline' 'unsafe-eval'";
+    ? `script-src 'self' 'unsafe-inline' ${adsenseScriptSrc}`
+    : `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${adsenseScriptSrc}`;
 
 const contentSecurityPolicy = [
   "default-src 'self'",
   "base-uri 'self'",
   "object-src 'none'",
   "frame-ancestors 'none'",
+  `frame-src ${adsenseFrameSrc}`,
   "form-action 'self'",
-  "img-src 'self' blob: data:",
+  `img-src 'self' blob: data: ${adsenseImgSrc}`,
   "media-src 'self' blob:",
   "font-src 'self' data:",
   scriptPolicy,
   "style-src 'self' 'unsafe-inline'",
-  "connect-src 'self'",
+  `connect-src 'self' ${adsenseConnectSrc}`,
   "worker-src 'self' blob:",
   "manifest-src 'self'",
   "upgrade-insecure-requests",

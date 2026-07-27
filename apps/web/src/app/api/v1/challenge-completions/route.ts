@@ -6,6 +6,7 @@ import { fail, ok } from "@/lib/api-response";
 import { putPrivateObject } from "@/lib/private-storage";
 import { normalizeAttendanceImage } from "@/modules/attendance/image";
 import { challengeScoreForParticipant } from "@/modules/challenges/sync-progress";
+import { grantChallengeCompletionXpIfNeeded } from "@/modules/gamification/challenge-xp";
 import {
   logicalDateInTimezone,
   requiredEvidenceFields,
@@ -270,6 +271,14 @@ export async function POST(request: Request) {
         await tx.challengeParticipant.update({
           where: { id: membership.id },
           data: { score },
+        });
+        await grantChallengeCompletionXpIfNeeded(tx, {
+          challengeId: challenge.id,
+          userId: session.user.id,
+          challengeName: challenge.name,
+          targetValue: challenge.targetValue,
+          pointsPerCompletion: challenge.pointsPerCompletion,
+          score,
         });
       }
       return row;

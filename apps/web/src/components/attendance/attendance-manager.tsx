@@ -33,6 +33,7 @@ import {
   AttendanceDetailStory,
   type AttendanceStoryData,
 } from "@/components/attendance/attendance-detail-story";
+import { ConfettiBurst } from "@/components/attendance/confetti-burst";
 import { ProtectedImage } from "@/components/media/protected-image";
 import {
   type BrowserLocation,
@@ -40,6 +41,8 @@ import {
   recentBrowserLocation,
   requestBrowserLocation,
 } from "@/lib/browser-location";
+import { compressAttendancePhoto } from "@/lib/image-compression";
+import { uploadWithProgress } from "@/lib/upload-with-progress";
 
 type Attendance = AttendanceStoryData;
 
@@ -59,6 +62,45 @@ function statusLabel(status: string) {
   if (status === "IN_PROGRESS") return "En curso";
   if (status === "CANCELLED") return "Cancelado";
   return status;
+}
+
+type ApiAttendance = {
+  id: string;
+  localDate: string;
+  status: string;
+  startedAt: string;
+  finishedAt: string | null;
+  durationMinutes: number | null;
+  timezone: string;
+  startLatitude: string | number | null;
+  startLongitude: string | number | null;
+  startAccuracyMeters: string | number | null;
+  endLatitude: string | number | null;
+  endLongitude: string | number | null;
+  endAccuracyMeters: string | number | null;
+  photos: Array<{ id: string; type: string }>;
+  pointMovements: Array<{ amount: number }>;
+};
+
+function toClientAttendance(row: ApiAttendance): Attendance {
+  return {
+    id: row.id,
+    localDate: row.localDate,
+    status: row.status,
+    startedAt: row.startedAt,
+    finishedAt: row.finishedAt,
+    durationMinutes: row.durationMinutes,
+    timezone: row.timezone,
+    startLatitude: row.startLatitude === null ? null : Number(row.startLatitude),
+    startLongitude: row.startLongitude === null ? null : Number(row.startLongitude),
+    startAccuracyMeters:
+      row.startAccuracyMeters === null ? null : Number(row.startAccuracyMeters),
+    endLatitude: row.endLatitude === null ? null : Number(row.endLatitude),
+    endLongitude: row.endLongitude === null ? null : Number(row.endLongitude),
+    endAccuracyMeters: row.endAccuracyMeters === null ? null : Number(row.endAccuracyMeters),
+    photos: row.photos,
+    pointMovements: row.pointMovements,
+  };
 }
 
 export function AttendanceManager({
@@ -89,10 +131,13 @@ export function AttendanceManager({
     locale === "en"
       ? ["M", "T", "W", "T", "F", "S", "S"]
       : ["L", "M", "M", "J", "V", "S", "D"];
-  const [rows] = useState(initial);
+  const [rows, setRows] = useState(initial);
   const [message, setMessage] = useState("");
   const [restBusy, setRestBusy] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [optimizing, setOptimizing] = useState(false);
+  const [celebrate, setCelebrate] = useState(false);
   const [preview, setPreview] = useState<string>();
   const [selectedFile, setSelectedFile] = useState<File>();
   const [photoSource, setPhotoSource] = useState<"camera" | "gallery">();
@@ -300,6 +345,15 @@ export function AttendanceManager({
     setPhotoSource(file ? source : undefined);
     setFileName(file?.name ?? "");
     setMessage("");
+    if (file) {
+      setOptimizing(true);
+      void compressAttendancePhoto(file).then((optimized) => {
+        setOptimizing(false);
+        setSelectedFile((current) => (current === file ? optimized : current));
+      });
+    } else {
+      setOptimizing(false);
+    }
   }
 
   function clearPhoto() {
@@ -308,6 +362,7 @@ export function AttendanceManager({
     setSelectedFile(undefined);
     setPhotoSource(undefined);
     setFileName("");
+    setOptimizing(false);
     setInputKey((key) => key + 1);
   }
 
@@ -319,6 +374,7 @@ export function AttendanceManager({
     }
     const form = event.currentTarget;
     setBusy(true);
+    setUploadProgress(0);
     setMessage("Preparando tu registro…");
     let stage: "location" | "upload" = "location";
     const uploadController = new AbortController();
@@ -343,23 +399,28 @@ export function AttendanceManager({
       }
       stage = "upload";
       setMessage("Subiendo tu evidencia de forma segura…");
-      const response = await fetch(url, {
-        method: "POST",
-        body: data,
-        signal: uploadController.signal,
-      });
-      const result = (await response.json()) as {
+      const response = await uploadWithProgress<{
         message: string;
+        data: ApiAttendance | null;
         errors?: Array<{ message: string }>;
-      };
+      }>(url, data, {
+        signal: uploadController.signal,
+        onProgress: (ratio) => setUploadProgress(Math.round(ratio * 100)),
+      });
+      const result = response.data;
       setMessage(
         response.ok
           ? result.message
           : (result.errors?.[0]?.message ?? result.message),
       );
-      if (response.ok) {
-        location.reload();
-        return;
+      if (response.ok && result.data) {
+        const updated = toClientAttendance(result.data);
+        setRows((previous) => [
+          updated,
+          ...previous.filter((row) => row.id !== updated.id),
+        ]);
+        clearPhoto();
+        if (updated.status === "COMPLETED") setCelebrate(true);
       }
     } catch (error) {
       setMessage(
@@ -372,6 +433,7 @@ export function AttendanceManager({
     } finally {
       window.clearTimeout(uploadTimeout);
       setBusy(false);
+      setUploadProgress(0);
     }
   }
 
@@ -788,13 +850,16 @@ export function AttendanceManager({
                     </h3>
                   </div>
                   <span
-                    className={`rounded-full px-2.5 py-1 text-[10px] font-black ${preview ? "bg-lime-400/10 text-lime-300" : "bg-slate-800 text-slate-400"}`}
+                    className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black ${preview ? "bg-lime-400/10 text-lime-300" : "bg-slate-800 text-slate-400"}`}
                   >
-                    {preview
-                      ? photoSource === "gallery"
-                        ? "ARCHIVO LISTO"
-                        : "CÁMARA LISTA"
-                      : "PENDIENTE"}
+                    {optimizing && <RefreshCw size={10} className="animate-spin" />}
+                    {optimizing
+                      ? "OPTIMIZANDO…"
+                      : preview
+                        ? photoSource === "gallery"
+                          ? "ARCHIVO LISTO"
+                          : "CÁMARA LISTA"
+                        : "PENDIENTE"}
                   </span>
                 </div>
 
@@ -908,14 +973,25 @@ export function AttendanceManager({
               </section>
 
               <button
-                className="btn w-full py-4 text-base shadow-[0_12px_35px_rgba(163,230,53,.12)]"
+                className="btn relative w-full overflow-hidden py-4 text-base shadow-[0_12px_35px_rgba(163,230,53,.12)]"
                 disabled={busy || !selectedFile}
               >
-                {busy
-                  ? "Procesando…"
-                  : active
-                    ? "Finalizar y ganar 1 punto"
-                    : "Confirmar e iniciar entrenamiento"}
+                {busy && (
+                  <span
+                    className="absolute inset-y-0 left-0 bg-white/25 transition-[width] duration-200 ease-out"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                )}
+                <span className="relative inline-flex items-center justify-center gap-2">
+                  {busy && <RefreshCw size={18} className="animate-spin" />}
+                  {busy
+                    ? uploadProgress > 0 && uploadProgress < 100
+                      ? `Subiendo… ${uploadProgress}%`
+                      : "Procesando…"
+                    : active
+                      ? "Finalizar y ganar 1 punto"
+                      : "Confirmar e iniciar entrenamiento"}
+                </span>
               </button>
               {message && (
                 <p
@@ -1261,6 +1337,7 @@ export function AttendanceManager({
           onClose={() => setSelectedAttendance(undefined)}
         />
       )}
+      {celebrate && <ConfettiBurst onDone={() => setCelebrate(false)} />}
     </div>
   );
 }

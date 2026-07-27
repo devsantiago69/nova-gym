@@ -1,4 +1,5 @@
 import { Prisma, prisma } from "@gymchallenge/database";
+import { grantChallengeCompletionXpIfNeeded } from "@/modules/gamification/challenge-xp";
 
 function dateInTimezone(value: Date, timezone: string) {
   const date = new Intl.DateTimeFormat("en-CA", {
@@ -56,6 +57,14 @@ export async function syncChallengeProgressInTransaction(tx: Prisma.TransactionC
     await tx.challengeParticipant.update({
       where: { id: participant.id },
       data: { score },
+    });
+    await grantChallengeCompletionXpIfNeeded(tx, {
+      challengeId: challenge.id,
+      userId: participant.userId,
+      challengeName: challenge.name,
+      targetValue: challenge.targetValue,
+      pointsPerCompletion: challenge.pointsPerCompletion,
+      score,
     });
   }
 }

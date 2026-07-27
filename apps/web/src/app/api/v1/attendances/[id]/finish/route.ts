@@ -1,4 +1,5 @@
 import { getServerSession } from "next-auth";
+import { after } from "next/server";
 import { prisma } from "@gymchallenge/database";
 import { DomainError } from "@gymchallenge/domain";
 import { authOptions } from "@/lib/auth";
@@ -14,6 +15,8 @@ import {
 } from "@/modules/notifications/service";
 import { attendanceCoordinates } from "@/modules/attendance/location";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
+import { grantXp } from "@/modules/gamification/xp";
+import { XP_ATTENDANCE } from "@/modules/gamification/constants";
 
 export async function POST(
   request: Request,
@@ -95,7 +98,7 @@ export async function POST(
       );
     const key = `attendance/${session.user.id}/${attendance.id}/end.webp`;
     await putPrivateObject(key, image.body, image.mimeType);
-    const completed = await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx) => {
       await tx.attendancePhoto.create({
         data: {
           attendanceId: id,
@@ -161,6 +164,16 @@ export async function POST(
           },
         });
       }
+      await grantXp(tx, {
+        userId: session.user.id,
+        amount: XP_ATTENDANCE,
+        type: "ATTENDANCE_EARNED",
+        sourceType: "Attendance",
+        sourceId: id,
+        logicalDate: attendance.localDate,
+        description: "Asistencia completada",
+        idempotencyKey: `xp:attendance:${id}:earned`,
+      });
       const activeChallenges = await tx.challengeParticipant.findMany({
         where: {
           userId: session.user.id,
@@ -187,83 +200,92 @@ export async function POST(
       });
       return row;
     });
-    try {
-      const [actorName, memberships] = await Promise.all([
-        userDisplayName(session.user.id),
-        prisma.challengeParticipant.findMany({
-          where: { userId: session.user.id, challenge: { status: "ACTIVE" } },
-          include: {
-            challenge: {
-              include: {
-                participants: {
-                  where: { acceptedAt: { not: null } },
-                  select: { userId: true },
+    after(async () => {
+      try {
+        const [actorName, memberships] = await Promise.all([
+          userDisplayName(session.user.id),
+          prisma.challengeParticipant.findMany({
+            where: { userId: session.user.id, challenge: { status: "ACTIVE" } },
+            include: {
+              challenge: {
+                include: {
+                  participants: {
+                    where: { acceptedAt: { not: null } },
+                    select: { userId: true },
+                  },
                 },
               },
             },
-          },
-        }),
-      ]);
-      const validationTargets = new Map<
-        string,
-        { challengeIds: string[]; challengeNames: string[] }
-      >();
-      for (const membership of memberships)
-        for (const participant of membership.challenge.participants) {
-          if (participant.userId === session.user.id) continue;
-          const current = validationTargets.get(participant.userId) ?? {
-            challengeIds: [],
-            challengeNames: [],
-          };
-          current.challengeIds.push(membership.challengeId);
-          current.challengeNames.push(membership.challenge.name);
-          validationTargets.set(participant.userId, current);
-        }
-      await createNotifications(
-        [...validationTargets.entries()].map(([userId, target]) => ({
-          userId,
-          actorId: session.user.id,
-          type: "ATTENDANCE_COMPLETED" as const,
-          title: "Nueva evidencia por validar",
-          body: `${actorName} completó ${duration} minutos en ${target.challengeNames[0]}. Tu voto está pendiente.`,
-          href: `/retos?challenge=${encodeURIComponent(target.challengeIds[0]!)}`,
-          data: {
-            attendanceId: id,
-            durationMinutes: duration,
-            challengeIds: target.challengeIds,
-            votePending: true,
-          },
-          dedupeKey: `attendance-evidence-pending:${id}:${userId}`,
-        })),
-      );
-      for (const membership of memberships) {
-        const targetScore =
-          membership.challenge.targetValue *
-          Math.max(1, membership.challenge.pointsPerCompletion);
-        if (membership.score < targetScore) continue;
-        const teammateIds = membership.challenge.participants
-          .map(({ userId }) => userId)
-          .filter((userId) => userId !== session.user.id);
+          }),
+        ]);
+        const validationTargets = new Map<
+          string,
+          { challengeIds: string[]; challengeNames: string[] }
+        >();
+        for (const membership of memberships)
+          for (const participant of membership.challenge.participants) {
+            if (participant.userId === session.user.id) continue;
+            const current = validationTargets.get(participant.userId) ?? {
+              challengeIds: [],
+              challengeNames: [],
+            };
+            current.challengeIds.push(membership.challengeId);
+            current.challengeNames.push(membership.challenge.name);
+            validationTargets.set(participant.userId, current);
+          }
         await createNotifications(
-          teammateIds.map((userId) => ({
+          [...validationTargets.entries()].map(([userId, target]) => ({
             userId,
             actorId: session.user.id,
-            type: "CHALLENGE_COMPLETED" as const,
-            title: "¡Meta alcanzada en el reto!",
-            body: `${actorName} completó la meta de “${membership.challenge.name}”.`,
-            href: "/retos",
-            data: { challengeId: membership.challengeId, attendanceId: id },
-            dedupeKey: `challenge-target-reached:${membership.challengeId}:${session.user.id}:${userId}`,
+            type: "ATTENDANCE_COMPLETED" as const,
+            title: "Nueva evidencia por validar",
+            body: `${actorName} completó ${duration} minutos en ${target.challengeNames[0]}. Tu voto está pendiente.`,
+            href: `/retos?challenge=${encodeURIComponent(target.challengeIds[0]!)}`,
+            data: {
+              attendanceId: id,
+              durationMinutes: duration,
+              challengeIds: target.challengeIds,
+              votePending: true,
+            },
+            dedupeKey: `attendance-evidence-pending:${id}:${userId}`,
           })),
         );
+        for (const membership of memberships) {
+          const targetScore =
+            membership.challenge.targetValue *
+            Math.max(1, membership.challenge.pointsPerCompletion);
+          if (membership.score < targetScore) continue;
+          const teammateIds = membership.challenge.participants
+            .map(({ userId }) => userId)
+            .filter((userId) => userId !== session.user.id);
+          await createNotifications(
+            teammateIds.map((userId) => ({
+              userId,
+              actorId: session.user.id,
+              type: "CHALLENGE_COMPLETED" as const,
+              title: "¡Meta alcanzada en el reto!",
+              body: `${actorName} completó la meta de “${membership.challenge.name}”.`,
+              href: "/retos",
+              data: { challengeId: membership.challengeId, attendanceId: id },
+              dedupeKey: `challenge-target-reached:${membership.challengeId}:${session.user.id}:${userId}`,
+            })),
+          );
+        }
+      } catch (notificationError) {
+        console.error(
+          "[attendance] Completion saved but notification dispatch failed",
+          notificationError,
+        );
       }
-    } catch (notificationError) {
-      console.error(
-        "[attendance] Completion saved but notification dispatch failed",
-        notificationError,
-      );
-    }
-    return ok(completed, "Entrenamiento finalizado. Ganaste 1 punto.");
+    });
+    const hydrated = await prisma.attendance.findUniqueOrThrow({
+      where: { id },
+      include: {
+        photos: { select: { id: true, type: true } },
+        pointMovements: { select: { amount: true } },
+      },
+    });
+    return ok(hydrated, "Entrenamiento finalizado. Ganaste 1 punto.");
   } catch (error) {
     if (error instanceof DomainError)
       return fail(error.code, error.message, 422);
