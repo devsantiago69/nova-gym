@@ -2,8 +2,6 @@ import { z } from "zod";
 import { strongPasswordSchema } from "../password-policy";
 
 export const registerSchema = z.object({
-  firstName: z.string().trim().min(2, "Ingresa tu nombre").max(100),
-  lastName: z.string().trim().min(2, "Ingresa tus apellidos").max(100),
   username: z
     .string()
     .trim()
@@ -17,21 +15,10 @@ export const registerSchema = z.object({
           "Usa de 3 a 40 letras, números, punto, guion o guion bajo",
         ),
     ),
-  email: z.preprocess(
-    (value) => (value === "" || value === undefined ? undefined : value),
-    z
-      .string()
-      .trim()
-      .toLowerCase()
-      .email("Ingresa un correo válido")
-      .optional(),
-  ),
-  whatsappNumber: z
+  email: z
     .string()
     .trim()
-    .regex(
-      /^\+[1-9]\d{7,14}$/,
-      "Usa formato internacional, por ejemplo +573001234567",
-    ),
+    .toLowerCase()
+    .email("Ingresa un correo válido"),
   password: strongPasswordSchema,
 });

@@ -5,6 +5,7 @@ import { prisma } from "@gymchallenge/database";
 import { authOptions } from "@/lib/auth";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { LocationConsent } from "@/components/location/location-consent";
+import { OnboardingModal } from "@/components/onboarding/onboarding-modal";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { NotificationCenter } from "@/components/notifications/notification-center";
 import { LocaleRuntime } from "@/components/i18n/locale-runtime";
@@ -62,6 +63,7 @@ export default async function AppLayout({
       <LocationConsent
         preference={profile?.attendanceLocationEnabled ?? null}
       />
+      <OnboardingModal needsOnboarding={!profile?.firstName} />
       <header className="sticky top-0 z-40 mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 border-b border-white/[.06] bg-[#070b12]/78 p-4 shadow-[0_12px_35px_rgba(0,0,0,.12)] backdrop-blur-2xl sm:p-5 md:rounded-b-[24px]">
         <Link href="/inicio" className="text-xl font-black text-lime-400">
           {appConfig.name}

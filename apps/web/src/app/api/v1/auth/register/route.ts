@@ -45,18 +45,16 @@ export async function POST(request: Request) {
           throw new Error("FREE_PLAN_UNAVAILABLE");
         const created = await tx.user.create({
           data: {
-            email: data.email ?? `${data.username}@members.novagym.local`,
+            email: data.email,
             username: data.username,
             passwordHash: await argon2.hash(data.password, {
               type: argon2.argon2id,
             }),
             role: "USER",
             status: "ACTIVE",
-            whatsappNumber: data.whatsappNumber,
-            countryCode: "+57",
             passwordChangedAt: new Date(),
             profile: {
-              create: { firstName: data.firstName, lastName: data.lastName },
+              create: { firstName: "", lastName: "" },
             },
             subscriptions: {
               create: {
@@ -71,6 +69,7 @@ export async function POST(request: Request) {
           select: {
             id: true,
             username: true,
+            email: true,
             profile: { select: { firstName: true, lastName: true } },
             subscriptions: {
               include: { plan: { select: { name: true, trialDays: true } } },
@@ -109,7 +108,7 @@ export async function POST(request: Request) {
     )
       return fail(
         "ACCOUNT_EXISTS",
-        "El usuario, correo o WhatsApp ya está registrado",
+        "El usuario o correo ya está registrado",
         409,
       );
     console.error(
