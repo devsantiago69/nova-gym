@@ -7,6 +7,7 @@ import {
   Gem,
   Mountain,
   Rocket,
+  Route,
   Shield,
   ShieldCheck,
   Sparkle,
@@ -79,12 +80,20 @@ export function ProfileLevelCard({
             </p>
           </div>
         </div>
-        <Link
-          href="/ranking"
-          className="inline-flex shrink-0 items-center gap-1 text-xs font-black text-lime-300"
-        >
-          Ver ranking <ChevronRight size={14} />
-        </Link>
+        <div className="flex shrink-0 items-center gap-3">
+          <Link
+            href="/niveles"
+            className="inline-flex items-center gap-1 text-xs font-black text-lime-300"
+          >
+            Niveles <ChevronRight size={14} />
+          </Link>
+          <Link
+            href="/ranking"
+            className="inline-flex items-center gap-1 text-xs font-black text-cyan-300"
+          >
+            Ranking <ChevronRight size={14} />
+          </Link>
+        </div>
       </div>
       <div className="mt-5">
         <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-800">

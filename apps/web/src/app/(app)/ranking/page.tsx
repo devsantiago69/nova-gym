@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth";
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronLeft, Trophy } from "lucide-react";
+import { ArrowLeft, Trophy } from "lucide-react";
 import { prisma } from "@gymchallenge/database";
 import { authOptions } from "@/lib/auth";
 import { topLeaderboard, rankOf } from "@/modules/gamification/leaderboard";
@@ -18,8 +18,9 @@ export default async function RankingPage() {
 
   return (
     <section>
-      <Link href="/perfil" className="inline-flex items-center gap-1 text-xs font-black text-lime-300">
-        <ChevronLeft size={14} /> Volver a mi perfil
+      <Link href="/perfil" className="mb-5 inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-950/50 px-4 py-2 text-sm font-bold text-slate-300 transition hover:border-lime-300 hover:text-white">
+        <ArrowLeft size={16} />
+        Volver a mi perfil
       </Link>
       <p className="mt-4 text-sm font-bold text-lime-400">RANKING GLOBAL</p>
       <h1 className="mt-1 text-3xl font-black sm:text-4xl">Top Nova Gym</h1>
