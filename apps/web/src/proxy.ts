@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { rateLimit, requestIp, tooManyRequests } from "@/lib/rate-limit";
 import { isTrustedMutation } from "@/lib/request-security";
 
-const publicApiRoutes = new Set(["/api/v1/auth/register"]);
+const publicApiRoutes = new Set(["/api/v1/auth/register", "/api/v1/auth/forgot-password", "/api/v1/auth/verify-reset-code", "/api/v1/auth/reset-password"]);
 const blockedStatuses = new Set(["INACTIVE", "SUSPENDED"]);
 const authSecret = process.env.AUTH_SECRET;
 
