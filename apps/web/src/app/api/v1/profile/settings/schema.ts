@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { ACCENT_COLOR_IDS } from "@/lib/colors/accent-colors";
+
+const accentColorIds = [...ACCENT_COLOR_IDS] as [string, ...string[]];
 
 export const profileSettingsSchema = z.object({
   firstName: z.string().trim().min(2, "Escribe al menos 2 caracteres").max(100),
@@ -29,6 +32,7 @@ export const profileSettingsSchema = z.object({
   locale: z.enum(["es", "en"]),
   localeAuto: z.boolean(),
   fontFamily: z.enum(["nova", "modern", "rounded", "editorial"]),
+  accentColor: z.enum(accentColorIds),
   storyDurationSeconds: z
     .number()
     .int()

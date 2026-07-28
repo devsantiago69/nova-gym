@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { Bell, BellRing, CheckCheck, Dumbbell, Flame, Trophy, UserPlus, Users, X } from "lucide-react";
+import { Bell, BellRing, CheckCheck, Crown, Dumbbell, Flame, LockKeyhole, Skull, Trophy, UserPlus, Users, Zap, X } from "lucide-react";
 import type { NotificationDto } from "@/modules/notifications/service";
 
 type ApiResponse = { success: boolean; data?: { notifications: NotificationDto[]; unreadCount: number } };
@@ -19,6 +19,10 @@ const iconByType = {
   EVIDENCE_REVIEWED: CheckCheck,
   CLUB_SESSION: Users,
   SYSTEM: Bell,
+  XP_EARNED: Zap,
+  STREAK_LOST: Skull,
+  LEVEL_UP: Crown,
+  PASSWORD_CHANGED: LockKeyhole,
 } as const;
 
 function relativeTime(value: string) {

@@ -11,6 +11,7 @@ import { NotificationCenter } from "@/components/notifications/notification-cent
 import { LocaleRuntime } from "@/components/i18n/locale-runtime";
 import { resolveAppLocale } from "@/lib/i18n/locale";
 import { appConfig } from "@gymchallenge/config";
+import { getAccentColor } from "@/lib/colors/accent-colors";
 export default async function AppLayout({
   children,
 }: {
@@ -35,6 +36,7 @@ export default async function AppLayout({
         localeAuto: true,
         timezone: true,
         fontFamily: true,
+        accentColor: true,
         attendanceLocationEnabled: true,
       },
     }),
@@ -54,11 +56,22 @@ export default async function AppLayout({
     `${profile?.firstName ?? ""} ${profile?.lastName ?? ""}`.trim() ||
     s.user.name;
   const adminLabel = locale === "en" ? "Admin" : "Administrar";
+  const accentColor = getAccentColor(profile?.accentColor ?? "lime");
+  const accentStyle = Object.entries(accentColor.palette).reduce(
+    (acc, [shade, hex]) => {
+      acc[`--color-lime-${shade}` as string] = hex;
+      return acc;
+    },
+    { "--primary": accentColor.hex } as Record<string, string>,
+  );
+  const accentScript = `document.documentElement.style.cssText+=";${Object.entries(accentColor.palette).map(([s, h]) => `--color-lime-${s}:${h}`).join(";")};--primary:${accentColor.hex}"`;
   return (
     <div
       className="nova-app min-h-screen"
       data-app-font={profile?.fontFamily ?? "nova"}
+      style={accentStyle as React.CSSProperties}
     >
+      <script dangerouslySetInnerHTML={{ __html: accentScript }} />
       <LocaleRuntime locale={locale} />
       <LocationConsent
         preference={profile?.attendanceLocationEnabled ?? null}

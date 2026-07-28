@@ -16,7 +16,8 @@ import {
 import { attendanceCoordinates } from "@/modules/attendance/location";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { grantXp } from "@/modules/gamification/xp";
-import { XP_ATTENDANCE } from "@/modules/gamification/constants";
+import { xpValue, XP_ATTENDANCE_DEFAULT } from "@/modules/gamification/constants";
+import { createNotification } from "@/modules/notifications/service";
 
 export async function POST(
   request: Request,
@@ -98,6 +99,8 @@ export async function POST(
       );
     const key = `attendance/${session.user.id}/${attendance.id}/end.webp`;
     await putPrivateObject(key, image.body, image.mimeType);
+    const attendanceXp = await xpValue("xp_attendance", XP_ATTENDANCE_DEFAULT);
+    let xpGranted = false;
     await prisma.$transaction(async (tx) => {
       await tx.attendancePhoto.create({
         data: {
@@ -164,9 +167,9 @@ export async function POST(
           },
         });
       }
-      await grantXp(tx, {
+      const xpResult = await grantXp(tx, {
         userId: session.user.id,
-        amount: XP_ATTENDANCE,
+        amount: attendanceXp,
         type: "ATTENDANCE_EARNED",
         sourceType: "Attendance",
         sourceId: id,
@@ -174,6 +177,7 @@ export async function POST(
         description: "Asistencia completada",
         idempotencyKey: `xp:attendance:${id}:earned`,
       });
+      xpGranted = xpResult.granted;
       const activeChallenges = await tx.challengeParticipant.findMany({
         where: {
           userId: session.user.id,
@@ -270,6 +274,16 @@ export async function POST(
               dedupeKey: `challenge-target-reached:${membership.challengeId}:${session.user.id}:${userId}`,
             })),
           );
+        }
+        if (xpGranted) {
+          await createNotification({
+            userId: session.user.id,
+            type: "XP_EARNED",
+            title: `+${attendanceXp} XP`,
+            body: "Ganaste experiencia por completar tu entrenamiento",
+            href: "/perfil",
+            dedupeKey: `xp:attendance:${id}:notif`,
+          });
         }
       } catch (notificationError) {
         console.error(

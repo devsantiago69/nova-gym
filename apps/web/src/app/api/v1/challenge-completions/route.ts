@@ -17,6 +17,7 @@ import {
 import { canStoreBytes } from "@/modules/plans/entitlements";
 import {
   createNotifications,
+  createNotification,
   userDisplayName,
 } from "@/modules/notifications/service";
 
@@ -193,12 +194,12 @@ export async function POST(request: Request) {
       challenge.evidenceType === "CHECKLIST"
         ? "SELF_REPORTED"
         : "AUTOMATIC");
-    const completion = await prisma.$transaction(async (tx) => {
+    const txResult = await prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`completion:${challenge.id}:${session.user.id}:${logicalDate.toISOString()}`}))`;
       const duplicate = await tx.challengeCompletion.findUnique({
         where: { idempotencyKey },
       });
-      if (duplicate) return duplicate;
+      if (duplicate) return { row: duplicate, xpResult: null };
       const daily = await tx.challengeCompletion.count({
         where: {
           challengeId: challenge.id,
@@ -272,7 +273,7 @@ export async function POST(request: Request) {
           where: { id: membership.id },
           data: { score },
         });
-        await grantChallengeCompletionXpIfNeeded(tx, {
+        const xpResult = await grantChallengeCompletionXpIfNeeded(tx, {
           challengeId: challenge.id,
           userId: session.user.id,
           challengeName: challenge.name,
@@ -280,9 +281,12 @@ export async function POST(request: Request) {
           pointsPerCompletion: challenge.pointsPerCompletion,
           score,
         });
+        return { row, xpResult };
       }
-      return row;
+      return { row, xpResult: null };
     });
+    const completion = txResult.row;
+    const xpResult = txResult.xpResult;
     const actorName = await userDisplayName(session.user.id);
     await createNotifications(
       challenge.participants
@@ -298,6 +302,16 @@ export async function POST(request: Request) {
           dedupeKey: `challenge-completion:${completion.id}:${item.userId}`,
         })),
     );
+    if (xpResult?.granted) {
+      await createNotification({
+        userId: session.user.id,
+        type: "XP_EARNED",
+        title: `+${xpResult.xpAwarded} XP`,
+        body: `¡Meta alcanzada en "${challenge.name}"!`,
+        href: `/retos?challenge=${challenge.id}`,
+        dedupeKey: `xp:challenge:${challenge.id}:${session.user.id}:notif`,
+      });
+    }
     return ok(
       completion,
       completion.status === "VALID"

@@ -3,6 +3,7 @@ import argon2 from "argon2";
 import { prisma } from "@gymchallenge/database";
 import { fail, ok } from "@/lib/api-response";
 import { rateLimit, requestIp, tooManyRequests } from "@/lib/rate-limit";
+import { notifyPasswordChanged } from "@/modules/notifications/security-events";
 
 export async function POST(request: Request) {
   const ipAddress = requestIp(request);
@@ -64,13 +65,15 @@ export async function POST(request: Request) {
   }
 
   const passwordHash = await argon2.hash(password, { type: argon2.argon2id });
+  const changedAt = new Date();
+  const userAgent = request.headers.get("user-agent")?.slice(0, 500) ?? null;
 
   await prisma.$transaction(async (tx) => {
     await tx.user.update({
       where: { id: resetToken.userId },
       data: {
         passwordHash,
-        passwordChangedAt: new Date(),
+        passwordChangedAt: changedAt,
         failedLoginAttempts: 0,
         lockedUntil: null,
         status: "ACTIVE",
@@ -79,7 +82,7 @@ export async function POST(request: Request) {
 
     await tx.passwordResetToken.update({
       where: { id: resetToken.id },
-      data: { usedAt: new Date() },
+      data: { usedAt: changedAt },
     });
 
     // Invalidate all other active reset tokens for this user
@@ -89,7 +92,7 @@ export async function POST(request: Request) {
         usedAt: null,
         id: { not: resetToken.id },
       },
-      data: { usedAt: new Date() },
+      data: { usedAt: changedAt },
     });
 
     await tx.auditLog.create({
@@ -99,9 +102,13 @@ export async function POST(request: Request) {
         entityId: resetToken.userId,
         correlationId: crypto.randomUUID(),
         ipAddress,
+        userAgent,
+        createdAt: changedAt,
       },
     });
   });
+
+  await notifyPasswordChanged(resetToken.userId, { ipAddress, userAgent, changedAt });
 
   return ok(null, "Tu contraseña fue actualizada correctamente. Ya puedes iniciar sesión.");
 }

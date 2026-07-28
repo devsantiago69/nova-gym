@@ -5,7 +5,8 @@ import { fail, ok } from "@/lib/api-response";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { attendanceStreak } from "@/modules/gamification/streak";
 import { grantXp } from "@/modules/gamification/xp";
-import { XP_STREAK_CLAIM } from "@/modules/gamification/constants";
+import { xpValue, XP_STREAK_CLAIM_DEFAULT } from "@/modules/gamification/constants";
+import { createNotification } from "@/modules/notifications/service";
 
 export async function POST() {
   const session = await getServerSession(authOptions);
@@ -46,6 +47,7 @@ export async function POST() {
       409,
     );
 
+  const streakXp = await xpValue("xp_streak_claim", XP_STREAK_CLAIM_DEFAULT);
   const streakStart = streak.start;
   try {
     await prisma.$transaction(async (tx) => {
@@ -55,12 +57,12 @@ export async function POST() {
             userId,
             tier,
             streakStart,
-            xpAmount: XP_STREAK_CLAIM,
+            xpAmount: streakXp,
           },
         });
         await grantXp(tx, {
           userId,
-          amount: XP_STREAK_CLAIM,
+          amount: streakXp,
           type: "STREAK_CLAIM",
           sourceType: "Streak",
           description: `Racha de ${tier * 2} días`,
@@ -78,10 +80,20 @@ export async function POST() {
     throw error;
   }
 
+  const totalAwarded = pendingTiers.length * streakXp;
+  await createNotification({
+    userId,
+    type: "XP_EARNED",
+    title: `+${totalAwarded} XP`,
+    body: `Recompensa de racha reclamada: ${pendingTiers.length} ${pendingTiers.length === 1 ? "nivel" : "niveles"} de racha`,
+    href: "/perfil",
+    dedupeKey: `xp:streak:notif:${userId}:${streakStart.toISOString().slice(0, 10)}`,
+  });
+
   return ok(
     {
       tiersClaimed: pendingTiers,
-      xpAwarded: pendingTiers.length * XP_STREAK_CLAIM,
+      xpAwarded: totalAwarded,
       streak: streak.length,
     },
     "¡Recompensa de racha reclamada!",

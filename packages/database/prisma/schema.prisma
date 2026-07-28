@@ -179,6 +179,10 @@ enum NotificationType {
   EVIDENCE_REVIEWED
   CLUB_SESSION
   SYSTEM
+  XP_EARNED
+  STREAK_LOST
+  LEVEL_UP
+  PASSWORD_CHANGED
 }
 
 enum SocialPostType {
@@ -1095,6 +1099,7 @@ model UserProfile {
   currency                  String   @default("COP") @db.Char(3)
   showActiveChallenges      Boolean  @default(true) @map("show_active_challenges")
   attendanceLocationEnabled Boolean? @map("attendance_location_enabled")
+  accentColor               String   @default("lime") @map("accent_color") @db.VarChar(30)
   createdAt                 DateTime @default(now()) @map("created_at")
   updatedAt                 DateTime @updatedAt @map("updated_at")
   user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1246,4 +1251,17 @@ model AdWatchEvent {
 
   @@index([userId, createdAt])
   @@map("ad_watch_events")
+}
+
+model GamificationConfig {
+  id               String   @id @default(uuid()) @db.Uuid
+  key              String   @unique @db.VarChar(60)
+  value            Int
+  label            String   @db.VarChar(120)
+  description      String?  @db.VarChar(300)
+  category         String   @db.VarChar(40)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@map("gamification_config")
 }

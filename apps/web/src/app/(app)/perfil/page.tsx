@@ -26,7 +26,7 @@ import { AdWatchWidget } from "@/components/gamification/ad-watch-widget";
 import { authOptions } from "@/lib/auth";
 import { publicFitnessStats } from "@/modules/profile/public-stats";
 import { gamificationSummary } from "@/modules/gamification/summary";
-import { XP_STREAK_CLAIM } from "@/modules/gamification/constants";
+import { xpValue, XP_STREAK_CLAIM_DEFAULT } from "@/modules/gamification/constants";
 
 export default async function Page() {
   const session = await getServerSession(authOptions);
@@ -53,7 +53,7 @@ export default async function Page() {
   const timelineStart = new Date(
     Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 5, 1),
   );
-  const [fitness, timelineAttendances, timelineRestDays, availablePlans, gamification] =
+  const [fitness, timelineAttendances, timelineRestDays, availablePlans, gamification, passwordHistory] =
     await Promise.all([
       publicFitnessStats(user.id),
       prisma.attendance.findMany({
@@ -77,6 +77,16 @@ export default async function Page() {
         orderBy: [{ monthlyPrice: "asc" }, { name: "asc" }],
       }),
       gamificationSummary(user.id),
+      prisma.auditLog.findMany({
+        where: {
+          entityType: "User",
+          entityId: user.id,
+          action: { in: ["PASSWORD_CHANGED", "PASSWORD_RESET_COMPLETED"] },
+        },
+        select: { id: true, action: true, createdAt: true, ipAddress: true, userAgent: true },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      }),
     ]);
   const attendanceDates = timelineAttendances.map((row) =>
     row.localDate.toISOString().slice(0, 10),
@@ -246,7 +256,7 @@ export default async function Page() {
           <StreakClaimWidget
             claimableTiers={gamification.streak.claimableTiers}
             streakLength={gamification.streak.length}
-            xpPerTier={XP_STREAK_CLAIM}
+            xpPerTier={await xpValue("xp_streak_claim", XP_STREAK_CLAIM_DEFAULT)}
           />
         )}
         <AdWatchWidget />
@@ -375,11 +385,22 @@ export default async function Page() {
               user.profile?.fontFamily === "editorial"
                 ? user.profile.fontFamily
                 : "nova",
+            accentColor: user.profile?.accentColor ?? "lime",
             storyDurationSeconds: user.profile?.storyDurationSeconds ?? 10,
             timezone: user.profile?.timezone ?? "America/Bogota",
             showActiveChallenges: user.profile?.showActiveChallenges ?? true,
             attendanceLocationEnabled:
               user.profile?.attendanceLocationEnabled ?? false,
+          }}
+          security={{
+            lastChangedAt: user.passwordChangedAt?.toISOString() ?? null,
+            history: passwordHistory.map((row) => ({
+              id: row.id,
+              action: row.action,
+              createdAt: row.createdAt.toISOString(),
+              ipAddress: row.ipAddress,
+              userAgent: row.userAgent,
+            })),
           }}
         />
       </div>

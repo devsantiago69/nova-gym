@@ -11,6 +11,7 @@ const valid = {
   locale: "es",
   localeAuto: false,
   fontFamily: "nova",
+  accentColor: "lime",
   storyDurationSeconds: 10,
   timezone: "America/Bogota",
   showActiveChallenges: true,

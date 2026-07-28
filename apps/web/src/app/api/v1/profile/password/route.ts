@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { fail, ok } from "@/lib/api-response";
 import { rateLimit, requestIp, tooManyRequests } from "@/lib/rate-limit";
 import { changePasswordSchema } from "@/modules/users/validators/user";
+import { notifyPasswordChanged } from "@/modules/notifications/security-events";
 
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);
@@ -52,6 +53,8 @@ export async function POST(request: Request) {
     );
   }
 
+  const changedAt = new Date();
+  const userAgent = request.headers.get("user-agent")?.slice(0, 500) ?? null;
   await prisma.$transaction([
     prisma.user.update({
       where: { id: user.id },
@@ -60,7 +63,7 @@ export async function POST(request: Request) {
           type: argon2.argon2id,
         }),
         status: "ACTIVE",
-        passwordChangedAt: new Date(),
+        passwordChangedAt: changedAt,
       },
     }),
     prisma.session.deleteMany({ where: { userId: user.id } }),
@@ -72,9 +75,11 @@ export async function POST(request: Request) {
         entityId: user.id,
         correlationId: crypto.randomUUID(),
         ipAddress,
-        userAgent: request.headers.get("user-agent")?.slice(0, 500) ?? null,
+        userAgent,
+        createdAt: changedAt,
       },
     }),
   ]);
+  await notifyPasswordChanged(user.id, { ipAddress, userAgent, changedAt });
   return ok(null, "Contraseña actualizada correctamente");
 }

@@ -5,18 +5,22 @@ import { useEffect, useMemo, useState } from "react";
 import {
   AtSign,
   Check,
+  Clock3,
   Eye,
   EyeOff,
   Globe2,
-  LetterText,
   KeyRound,
   Languages,
+  LetterText,
   LockKeyhole,
   Mail,
   MapPin,
+  MapPinned,
   Navigation,
   NavigationOff,
+  PaintBucket,
   Play,
+  RotateCcw,
   Save,
   ShieldCheck,
   Smartphone,
@@ -24,6 +28,9 @@ import {
   Timer,
   UserRound,
 } from "lucide-react";
+import { describeUserAgent } from "@/lib/user-agent";
+import { AccentColorPicker } from "./accent-color-picker";
+import { getAccentColor } from "@/lib/colors/accent-colors";
 
 type Locale = "es" | "en";
 type Settings = {
@@ -36,10 +43,23 @@ type Settings = {
   locale: Locale;
   localeAuto: boolean;
   fontFamily: "nova" | "modern" | "rounded" | "editorial";
+  accentColor: string;
   storyDurationSeconds: number;
   timezone: string;
   showActiveChallenges: boolean;
   attendanceLocationEnabled: boolean;
+};
+
+type SecurityEvent = {
+  id: string;
+  action: string;
+  createdAt: string;
+  ipAddress: string | null;
+  userAgent: string | null;
+};
+type Security = {
+  lastChangedAt: string | null;
+  history: SecurityEvent[];
 };
 
 const languages: Array<{
@@ -65,7 +85,13 @@ const timezones = [
 const inputClass =
   "mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3.5 outline-none transition focus:border-lime-400 focus:ring-2 focus:ring-lime-400/10";
 
-export function ProfileAccountCenter({ initial }: { initial: Settings }) {
+export function ProfileAccountCenter({
+  initial,
+  security,
+}: {
+  initial: Settings;
+  security: Security;
+}) {
   const [tab, setTab] = useState<
     | "identity"
     | "privacy"
@@ -88,8 +114,17 @@ export function ProfileAccountCenter({ initial }: { initial: Settings }) {
   const [showPasswords, setShowPasswords] = useState(false);
 
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("ajuste") === "privacidad")
+    // Lee el tab inicial desde la URL (?ajuste=...) una sola vez al montar;
+    // window.location no existe durante el render en el servidor, así que
+    // esto necesariamente requiere un efecto en vez de un valor derivado.
+    const ajuste = new URLSearchParams(window.location.search).get("ajuste");
+    if (ajuste === "privacidad") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTab("privacy");
+    }
+    if (ajuste === "seguridad") {
+      setTab("security");
+    }
   }, []);
 
   const passwordStrength = useMemo(() => {
@@ -492,6 +527,26 @@ export function ProfileAccountCenter({ initial }: { initial: Settings }) {
                   );
                 })}
               </div>
+              <hr className="border-white/[.06]" />
+              <div>
+                <p className="text-xs font-black" style={{ color: getAccentColor(settings.accentColor).hex }}>
+                  COLOR DE ACENTO
+                </p>
+                <h3 className="mt-1 text-2xl font-black">
+                  Elige la personalidad de tu app
+                </h3>
+                <p className="mt-1 text-sm muted">
+                  El color de acento se aplica a botones, badges, enlaces y
+                  elementos destacados de toda la aplicación.
+                </p>
+                <div className="mt-4">
+                  <AccentColorPicker
+                    value={settings.accentColor}
+                    onChange={(id) => update("accentColor", id)}
+                  />
+                </div>
+              </div>
+              <hr className="border-white/[.06]" />
               <div className="rounded-[24px] border border-violet-400/20 bg-gradient-to-r from-violet-400/10 to-cyan-400/5 p-5">
                 <p className="text-[10px] font-black tracking-[.15em] text-violet-300">
                   VISTA PREVIA
@@ -736,10 +791,85 @@ export function ProfileAccountCenter({ initial }: { initial: Settings }) {
           )}
 
           {tab === "security" && (
-            <form onSubmit={changePassword} className="space-y-5">
+            <div className="space-y-8">
               <div>
                 <p className="text-xs font-black text-orange-300">
                   ACCESO Y SEGURIDAD
+                </p>
+                <h3 className="mt-1 text-2xl font-black">
+                  Historial de tu contraseña
+                </h3>
+                <div className="mt-4 flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                  <Clock3 className="shrink-0 text-cyan-300" />
+                  <div>
+                    <strong className="block text-sm">Último cambio</strong>
+                    <p className="mt-0.5 text-xs muted">
+                      {security.lastChangedAt
+                        ? new Date(security.lastChangedAt).toLocaleString("es-CO", {
+                            timeZone: "America/Bogota",
+                            day: "numeric",
+                            month: "long",
+                            year: "numeric",
+                            hour: "numeric",
+                            minute: "2-digit",
+                          })
+                        : "Nunca has cambiado tu contraseña."}
+                    </p>
+                  </div>
+                </div>
+                {security.history.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {security.history.map((event) => {
+                      const device = describeUserAgent(event.userAgent);
+                      const isReset = event.action === "PASSWORD_RESET_COMPLETED";
+                      return (
+                        <div
+                          key={event.id}
+                          className="flex items-start gap-3 rounded-2xl border border-slate-800/80 bg-slate-950/40 p-3.5"
+                        >
+                          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-slate-800 text-slate-300">
+                            {isReset ? <RotateCcw size={16} /> : <KeyRound size={16} />}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <strong className="text-xs">
+                                {isReset ? "Recuperación por correo" : "Cambio manual"}
+                              </strong>
+                              <span className="text-[11px] muted">
+                                {new Date(event.createdAt).toLocaleString("es-CO", {
+                                  timeZone: "America/Bogota",
+                                  day: "numeric",
+                                  month: "short",
+                                  hour: "numeric",
+                                  minute: "2-digit",
+                                })}
+                              </span>
+                            </div>
+                            <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[11px] muted">
+                              {device && (
+                                <span className="inline-flex items-center gap-1">
+                                  <Smartphone size={12} />
+                                  {device}
+                                </span>
+                              )}
+                              {event.ipAddress && (
+                                <span className="inline-flex items-center gap-1">
+                                  <MapPinned size={12} />
+                                  {event.ipAddress}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            <form onSubmit={changePassword} className="space-y-5">
+              <div>
+                <p className="text-xs font-black text-orange-300">
+                  CAMBIAR CONTRASEÑA
                 </p>
                 <h3 className="mt-1 text-2xl font-black">
                   Renueva tu contraseña
@@ -855,6 +985,7 @@ export function ProfileAccountCenter({ initial }: { initial: Settings }) {
                 {saving ? "Protegiendo…" : "Cambiar contraseña"}
               </button>
             </form>
+            </div>
           )}
 
           {message && (
