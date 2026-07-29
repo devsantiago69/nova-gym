@@ -50,6 +50,9 @@ export default async function ClubPage({
   const { slug } = await params;
   const query = await searchParams;
   const weekStart = mondayStart();
+  // Server component: se evalúa una vez por solicitud, no hay re-render que memoizar.
+  // eslint-disable-next-line react-hooks/purity
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const club = await prisma.club.findUnique({
     where: { slug },
     include: {
@@ -77,7 +80,7 @@ export default async function ClubPage({
         orderBy: [{ role: "asc" }, { joinedAt: "asc" }],
       },
       sessions: {
-        where: { startsAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
+        where: { startsAt: { gte: oneDayAgo } },
         include: {
           creator: {
             select: {

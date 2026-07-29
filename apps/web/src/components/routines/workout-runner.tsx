@@ -53,7 +53,7 @@ export function WorkoutRunner({
 }) {
   const router = useRouter();
   const [workout, setWorkout] = useState(initialWorkout);
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState<number | null>(null);
   const [busy, setBusy] = useState("");
   const [rest, setRest] = useState(0);
   const [message, setMessage] = useState("");
@@ -64,6 +64,9 @@ export function WorkoutRunner({
   );
   const item = workout.routine.exercises[index]!;
   useEffect(() => {
+    // Sincroniza el reloj con el sistema al montar (evita usar Date.now() como estado inicial).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setNow(Date.now());
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, []);
@@ -78,7 +81,7 @@ export function WorkoutRunner({
   const elapsed = useMemo(
     () =>
       workout.accumulatedSeconds +
-      (workout.status === "ACTIVE" && workout.segmentStartedAt
+      (workout.status === "ACTIVE" && workout.segmentStartedAt && now !== null
         ? Math.max(
             0,
             Math.floor(

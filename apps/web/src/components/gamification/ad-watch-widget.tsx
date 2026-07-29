@@ -8,7 +8,7 @@ const COUNTDOWN_SECONDS = Number(process.env.NEXT_PUBLIC_AD_COUNTDOWN_SECONDS ??
 
 type Stage = "idle" | "watching" | "claimed" | "limited";
 
-export function AdWatchWidget() {
+export function AdWatchWidget({ slotId }: { slotId: string | null }) {
   const [stage, setStage] = useState<Stage>("idle");
   const [secondsLeft, setSecondsLeft] = useState(COUNTDOWN_SECONDS);
   const [message, setMessage] = useState("");
@@ -22,7 +22,7 @@ export function AdWatchWidget() {
     return () => window.clearTimeout(timeout);
   }, [stage, secondsLeft]);
 
-  if (!adsenseConfigured()) return null;
+  if (!adsenseConfigured() || !slotId) return null;
 
   function watch() {
     startedAt.current = Date.now();
@@ -79,7 +79,7 @@ export function AdWatchWidget() {
           </p>
           {stage === "watching" && (
             <div className="mt-4">
-              <AdSlot />
+              <AdSlot slotId={slotId} />
               {!ready && (
                 <p className="mt-3 text-xs font-bold text-cyan-200">
                   Espera {secondsLeft}s para poder reclamar tu recompensa…

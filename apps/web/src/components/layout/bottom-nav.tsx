@@ -41,7 +41,11 @@ export function BottomNav({
   const translated = labels[locale as keyof typeof labels] ?? labels.es;
   const items = routes.map(([href, Icon], index) => [href, translated[index], Icon] as const);
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    // Marca el montaje en cliente antes de leer APIs solo-navegador (visualViewport) abajo.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!mounted) return;

@@ -1,7 +1,7 @@
 "use client";
 
 import {FormEvent,useEffect,useMemo,useRef,useState} from "react";
-import {ArrowLeft,ArrowRight,CheckCircle2,ClipboardList,Flame,Search,ShieldCheck,Sparkles,Target,UsersRound,X} from "lucide-react";
+import {ArrowLeft,ArrowRight,CheckCircle2,ClipboardList,Search,ShieldCheck,Sparkles,Target,UsersRound,X} from "lucide-react";
 
 type Category={id:string;name:string};type Friend={id:string;username:string;name:string};
 const weekdays=[[1,"L"],[2,"M"],[3,"M"],[4,"J"],[5,"V"],[6,"S"],[7,"D"]] as const;

@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
   Building2,
-  CheckCircle2,
   ChevronRight,
   Dumbbell,
   Globe2,

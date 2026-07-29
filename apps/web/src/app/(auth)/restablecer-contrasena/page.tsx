@@ -15,7 +15,7 @@ export default function ResetPasswordPage() {
   const [validating, setValidating] = useState(true);
 
   useEffect(() => {
-    if (!token) { setValidating(false); return; }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setValidating(false);
   }, [token]);
 

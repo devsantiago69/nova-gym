@@ -59,6 +59,12 @@ enum XpMovementType {
   ADMIN_ADJUSTMENT
 }
 
+enum AdPlacementFormat {
+  DISPLAY
+  NATIVE_FEED
+  REWARDED
+}
+
 enum FriendshipStatus {
   PENDING
   ACCEPTED
@@ -1251,6 +1257,22 @@ model AdWatchEvent {
 
   @@index([userId, createdAt])
   @@map("ad_watch_events")
+}
+
+model AdPlacement {
+  id        String            @id @default(uuid()) @db.Uuid
+  key       String            @unique @db.VarChar(60)
+  label     String            @db.VarChar(120)
+  page      String            @db.VarChar(40)
+  format    AdPlacementFormat @default(DISPLAY)
+  slotId    String?           @map("slot_id") @db.VarChar(60)
+  enabled   Boolean           @default(false)
+  frequency Int               @default(6)
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @updatedAt @map("updated_at")
+
+  @@index([page, enabled])
+  @@map("ad_placements")
 }
 
 model GamificationConfig {

@@ -16,7 +16,6 @@ import {
   Shield,
   ShieldCheck,
   Sparkles,
-  Trash2,
   UserMinus,
   UserPlus,
   UsersRound,

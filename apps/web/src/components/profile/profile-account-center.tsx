@@ -18,7 +18,6 @@ import {
   MapPinned,
   Navigation,
   NavigationOff,
-  PaintBucket,
   Play,
   RotateCcw,
   Save,

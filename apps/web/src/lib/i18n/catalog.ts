@@ -436,7 +436,7 @@ export function translateSpanishText(input: string, locale: string) {
   if (!value) return input;
   const exact = englishCatalog[value];
   if (exact) return `${leading}${exact}${trailing}`;
-  let translated = value
+  const translated = value
     .replace(/^(\d+) días$/, "$1 days")
     .replace(/^(\d+) día$/, "$1 day")
     .replace(/^(\d+) asistencias$/, "$1 check-ins")

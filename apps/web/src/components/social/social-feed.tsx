@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import {
   BadgeCheck,
   ChevronDown,
@@ -16,6 +16,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import type { SocialFeedItem } from "@/modules/social/feed";
+import { AdSlot } from "@/components/gamification/ad-slot";
 
 const reactionOptions = [
   ["FIRE", Flame, "Fuego", "text-orange-300"],
@@ -65,16 +66,23 @@ function Avatar({
 export function SocialFeed({
   initial,
   compact = false,
+  adPlacement = null,
 }: {
   initial: SocialFeedItem[];
   compact?: boolean;
+  adPlacement?: { slotId: string; frequency: number } | null;
 }) {
   const [posts, setPosts] = useState(initial);
   const [busy, setBusy] = useState<string>();
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>(
     {},
   );
-  useEffect(() => setPosts(initial), [initial]);
+  useEffect(() => {
+    // Resincroniza el estado local editable cuando el servidor entrega un
+    // nuevo `initial` (ej. tras un refresh de la página).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPosts(initial);
+  }, [initial]);
   const visible = compact ? posts.slice(0, 4) : posts;
 
   async function react(postId: string, type: string) {
@@ -162,15 +170,17 @@ export function SocialFeed({
 
   return (
     <div className="space-y-5">
-      {visible.map((post) => {
+      {visible.map((post, index) => {
         const totalReactions = Object.values(post.reactions).reduce(
           (sum, count) => sum + count,
           0,
         );
         const photo = post.attendance?.photos.at(-1);
+        const showAdAfter =
+          !compact && adPlacement && index > 0 && (index + 1) % adPlacement.frequency === 0;
         return (
+          <Fragment key={post.id}>
           <article
-            key={post.id}
             className="overflow-hidden rounded-[30px] border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 shadow-[0_20px_70px_rgba(0,0,0,.18)]"
           >
             <header className="flex items-start gap-3 p-4 sm:p-5">
@@ -355,6 +365,15 @@ export function SocialFeed({
               </div>
             </div>
           </article>
+          {showAdAfter && (
+            <div className="overflow-hidden rounded-[30px] border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 p-4 shadow-[0_20px_70px_rgba(0,0,0,.18)] sm:p-5">
+              <p className="mb-3 text-[9px] font-black uppercase tracking-[.14em] text-slate-500">
+                Publicidad
+              </p>
+              <AdSlot slotId={adPlacement!.slotId} />
+            </div>
+          )}
+          </Fragment>
         );
       })}
     </div>

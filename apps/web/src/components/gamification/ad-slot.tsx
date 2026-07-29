@@ -10,18 +10,17 @@ declare global {
 }
 
 const CLIENT_ID = process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID;
-const PROFILE_SLOT_ID = process.env.NEXT_PUBLIC_ADSENSE_SLOT_PROFILE_REWARDED;
 
 export function adsenseConfigured() {
-  return Boolean(CLIENT_ID && PROFILE_SLOT_ID);
+  return Boolean(CLIENT_ID);
 }
 
-export function AdSlot() {
+export function AdSlot({ slotId }: { slotId: string }) {
   const insRef = useRef<HTMLModElement>(null);
   const pushed = useRef(false);
 
   useEffect(() => {
-    if (!CLIENT_ID || !PROFILE_SLOT_ID || pushed.current) return;
+    if (!CLIENT_ID || pushed.current) return;
     try {
       window.adsbygoogle = window.adsbygoogle ?? [];
       window.adsbygoogle.push({});
@@ -31,7 +30,7 @@ export function AdSlot() {
     }
   }, []);
 
-  if (!CLIENT_ID || !PROFILE_SLOT_ID) return null;
+  if (!CLIENT_ID) return null;
 
   return (
     <>
@@ -45,7 +44,7 @@ export function AdSlot() {
         className="adsbygoogle block min-h-[100px] w-full"
         style={{ display: "block" }}
         data-ad-client={CLIENT_ID}
-        data-ad-slot={PROFILE_SLOT_ID}
+        data-ad-slot={slotId}
         data-ad-format="auto"
         data-full-width-responsive="true"
       />

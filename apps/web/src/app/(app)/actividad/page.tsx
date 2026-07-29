@@ -3,10 +3,17 @@ import { Activity, ShieldCheck } from "lucide-react";
 import { SocialFeed } from "@/components/social/social-feed";
 import { authOptions } from "@/lib/auth";
 import { socialFeed } from "@/modules/social/feed";
+import { placementFor, placementIsActive } from "@/modules/gamification/ad-placements";
 
 export default async function ActivityPage() {
   const session = await getServerSession(authOptions);
-  const posts = await socialFeed(session!.user.id, 30);
+  const [posts, adPlacement] = await Promise.all([
+    socialFeed(session!.user.id, 30),
+    placementFor("comunidad-feed"),
+  ]);
+  const feedAdPlacement = placementIsActive(adPlacement)
+    ? { slotId: adPlacement!.slotId!, frequency: adPlacement!.frequency }
+    : null;
   return (
     <main className="mx-auto max-w-2xl space-y-6 pb-10">
       <header className="relative overflow-hidden rounded-[30px] border border-cyan-400/15 bg-gradient-to-br from-cyan-400/10 via-slate-900 to-violet-400/10 p-6">
@@ -31,7 +38,7 @@ export default async function ActivityPage() {
           Cada publicación respeta la audiencia elegida por su autor.
         </p>
       </header>
-      <SocialFeed initial={posts} />
+      <SocialFeed initial={posts} adPlacement={feedAdPlacement} />
     </main>
   );
 }

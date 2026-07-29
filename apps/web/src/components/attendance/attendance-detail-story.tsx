@@ -58,7 +58,9 @@ export function AttendanceDetailStory({ attendance, onClose, locale, storyDurati
   }
 
   useEffect(() => {
+    // Reinicia el temporizador de la historia al cambiar de foto.
     expiredPhotoRef.current = null;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setRemainingMs(storyDurationSeconds * 1000);
     setPaused(false);
   }, [activeIndex, storyDurationSeconds]);

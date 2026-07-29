@@ -7,7 +7,6 @@ import {
   Gem,
   Mountain,
   Rocket,
-  Route,
   Shield,
   ShieldCheck,
   Sparkle,

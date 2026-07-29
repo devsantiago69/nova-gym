@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth";
 import { DomainError } from "@gymchallenge/domain";
-import { Prisma, prisma } from "@gymchallenge/database";
+import { prisma } from "@gymchallenge/database";
 import { authOptions } from "@/lib/auth";
 import { fail, ok } from "@/lib/api-response";
 import { putPrivateObject } from "@/lib/private-storage";
@@ -176,7 +176,7 @@ export async function POST(request: Request) {
           `Alcanzaste los ${storage.plan.storageLimitMb} MB de tu plan`,
         );
     }
-    for (const [position, item] of uploads.entries())
+    for (const item of uploads)
       await putPrivateObject(
         `challenge-completions/${session.user.id}/${completionId}/${item.type.toLowerCase()}.webp`,
         item.image.body,

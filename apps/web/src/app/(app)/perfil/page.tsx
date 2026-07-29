@@ -27,6 +27,7 @@ import { authOptions } from "@/lib/auth";
 import { publicFitnessStats } from "@/modules/profile/public-stats";
 import { gamificationSummary } from "@/modules/gamification/summary";
 import { xpValue, XP_STREAK_CLAIM_DEFAULT } from "@/modules/gamification/constants";
+import { placementFor, placementIsActive } from "@/modules/gamification/ad-placements";
 
 export default async function Page() {
   const session = await getServerSession(authOptions);
@@ -53,7 +54,7 @@ export default async function Page() {
   const timelineStart = new Date(
     Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 5, 1),
   );
-  const [fitness, timelineAttendances, timelineRestDays, availablePlans, gamification, passwordHistory] =
+  const [fitness, timelineAttendances, timelineRestDays, availablePlans, gamification, passwordHistory, adPlacement] =
     await Promise.all([
       publicFitnessStats(user.id),
       prisma.attendance.findMany({
@@ -87,7 +88,9 @@ export default async function Page() {
         orderBy: { createdAt: "desc" },
         take: 10,
       }),
+      placementFor("perfil-recompensa"),
     ]);
+  const adWatchSlotId = placementIsActive(adPlacement) ? adPlacement!.slotId : null;
   const attendanceDates = timelineAttendances.map((row) =>
     row.localDate.toISOString().slice(0, 10),
   );
@@ -259,7 +262,7 @@ export default async function Page() {
             xpPerTier={await xpValue("xp_streak_claim", XP_STREAK_CLAIM_DEFAULT)}
           />
         )}
-        <AdWatchWidget />
+        <AdWatchWidget slotId={adWatchSlotId} />
       </div>
       <section className="mt-5 overflow-hidden rounded-[30px] border border-white/[.08] bg-[radial-gradient(circle_at_top_right,rgba(163,230,53,.11),transparent_34%),rgba(10,18,32,.76)] p-5 shadow-[0_22px_65px_rgba(0,0,0,.18)] backdrop-blur-xl sm:p-6">
         <div className="flex items-end justify-between gap-4">

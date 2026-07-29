@@ -1,7 +1,6 @@
 import { getServerSession } from "next-auth";
 import Link from "next/link";
 import { ArrowLeft, Crown, Flame, Gem, Lock, Rocket, Shield, ShieldCheck, Sparkle, Star, Sword, Trophy, Zap, Cog, Mountain } from "lucide-react";
-import { prisma } from "@gymchallenge/database";
 import { authOptions } from "@/lib/auth";
 import { cachedLevels, totalXp, levelForXp } from "@/modules/gamification/xp";
 import { rankOf } from "@/modules/gamification/leaderboard";
@@ -21,7 +20,6 @@ export default async function NivelesPage() {
 
   const sorted = [...levels].sort((a, b) => a.xpThreshold - b.xpThreshold);
   const { current, next, progress } = levelForXp(xpTotal, sorted);
-  const maxLevel = sorted.length > 0 ? sorted[sorted.length - 1] : null;
   const isMaxLevel = !next;
 
   return (
@@ -97,7 +95,7 @@ export default async function NivelesPage() {
         <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gradient-to-b from-lime-400/40 via-cyan-400/20 to-slate-800/60 sm:left-7" />
 
         <div className="space-y-1">
-          {sorted.map((lvl, index) => {
+          {sorted.map((lvl) => {
             const reached = lvl.xpThreshold <= xpTotal;
             const isCurrent = current?.id === lvl.id;
             const isNext = next?.id === lvl.id;

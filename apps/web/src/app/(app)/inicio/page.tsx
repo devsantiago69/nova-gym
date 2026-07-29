@@ -19,6 +19,7 @@ import { prisma } from "@gymchallenge/database";
 import { authOptions } from "@/lib/auth";
 import { resolveAppLocale } from "@/lib/i18n/locale";
 import { SocialFeed } from "@/components/social/social-feed";
+import { AdPlacementSlot } from "@/components/gamification/ad-placement-slot";
 import { socialFeed as loadSocialFeed } from "@/modules/social/feed";
 
 const dayKey = (date: Date) => date.toISOString().slice(0, 10);
@@ -301,6 +302,8 @@ export default async function Dashboard() {
           </article>
         ))}
       </div>
+
+      <AdPlacementSlot placementKey="inicio-resumen" />
 
       <section className="space-y-3">
         <div className="px-1">

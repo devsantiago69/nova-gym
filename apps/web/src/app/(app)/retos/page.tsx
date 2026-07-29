@@ -25,6 +25,7 @@ import {
 } from "@/components/challenges/personal-challenge-templates";
 import { ChallengeSectionNav } from "@/components/challenges/challenge-section-nav";
 import { ChallengeAccordion } from "@/components/challenges/challenge-accordion";
+import { AdPlacementSlot } from "@/components/gamification/ad-placement-slot";
 import { authOptions } from "@/lib/auth";
 import { syncUserActiveChallenges } from "@/modules/challenges/sync-progress";
 
@@ -691,6 +692,8 @@ export default async function Page({
           ))}
         </div>
       </ChallengeAccordion>
+
+      <AdPlacementSlot placementKey="retos-final" />
     </section>
   );
 }

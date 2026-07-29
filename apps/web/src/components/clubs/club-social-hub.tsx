@@ -89,6 +89,10 @@ export function ClubSocialHub({
     latitude: "",
     longitude: "",
   });
+  // Se usa solo para saber si una sesión ya empezó (habilitar "Marcar como completada");
+  // un desfase de un render no tiene impacto real.
+  // eslint-disable-next-line react-hooks/purity
+  const now = Date.now();
 
   async function publish() {
     if (post.trim().length < 2) return;
@@ -249,7 +253,7 @@ export function ClubSocialHub({
                     </div>
                     {training.status === "SCHEDULED" ? <div className="mt-4 flex gap-2">
                       {training.myStatus === "GOING" ? <button disabled={busy === training.id} onClick={() => void sessionAction(training.id, "leave")} className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-700 py-3 text-xs font-black"><CheckCircle2 size={16} className="text-lime-300" /> Confirmado · Liberar</button> : training.myStatus === "WAITLIST" ? <button disabled={busy === training.id} onClick={() => void sessionAction(training.id, "leave")} className="flex-1 rounded-xl border border-orange-300/30 py-3 text-xs font-black text-orange-200">En espera · Salir</button> : <button disabled={busy === training.id} onClick={() => void sessionAction(training.id, "join")} className="btn flex-1 gap-2 py-3"><UserRoundCheck size={17} /> Quiero ir</button>}
-                      {training.canManage && new Date(training.startsAt).getTime() <= Date.now() ? <button disabled={busy === training.id} onClick={() => void sessionAction(training.id, "complete")} className="rounded-xl border border-lime-300/20 px-3 text-lime-300" title="Marcar como completada"><CheckCircle2 size={17} /></button> : null}
+                      {training.canManage && new Date(training.startsAt).getTime() <= now ? <button disabled={busy === training.id} onClick={() => void sessionAction(training.id, "complete")} className="rounded-xl border border-lime-300/20 px-3 text-lime-300" title="Marcar como completada"><CheckCircle2 size={17} /></button> : null}
                       {training.canManage ? <button disabled={busy === training.id} onClick={() => void sessionAction(training.id, "cancel")} className="rounded-xl border border-red-400/20 px-3 text-red-300" title="Cancelar sesión"><X size={17} /></button> : null}
                     </div> : null}
                   </article>

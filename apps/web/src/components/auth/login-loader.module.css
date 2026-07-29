@@ -1,0 +1,142 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: rgba(5, 8, 13, 0.86);
+  backdrop-filter: blur(6px);
+}
+
+.stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 26px;
+}
+
+.container {
+  width: 160px;
+  height: 160px;
+  position: relative;
+  filter: url(#nova-goo-loader);
+  animation: rotateMove 2s ease-in-out infinite;
+}
+
+.dot {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  position: absolute;
+  inset: 0;
+  margin: auto;
+}
+
+.dot1 {
+  background-color: #a3e635;
+  animation:
+    dot1Move 2s ease infinite,
+    stackOrder 6s -2s ease infinite;
+}
+
+.dot2 {
+  background-color: #22d3ee;
+  animation:
+    dot2Move 2s ease infinite,
+    stackOrder 6s -4s ease infinite;
+}
+
+.dot3 {
+  background-color: #facc15;
+  animation:
+    dot3Move 2s ease infinite,
+    stackOrder 6s ease infinite;
+}
+
+.label {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #a3e635;
+}
+
+@keyframes dot1Move {
+  20% {
+    transform: scale(1);
+  }
+  45% {
+    transform: translate(13px, 10px) scale(0.45);
+  }
+  60% {
+    transform: translate(64px, 48px) scale(0.45);
+  }
+  80% {
+    transform: translate(64px, 48px) scale(0.45);
+  }
+  100% {
+    transform: translateY(0px) scale(1);
+  }
+}
+
+@keyframes dot2Move {
+  20% {
+    transform: scale(1);
+  }
+  45% {
+    transform: translate(-13px, 10px) scale(0.45);
+  }
+  60% {
+    transform: translate(-64px, 48px) scale(0.45);
+  }
+  80% {
+    transform: translate(-64px, 48px) scale(0.45);
+  }
+  100% {
+    transform: translateY(0px) scale(1);
+  }
+}
+
+@keyframes dot3Move {
+  20% {
+    transform: scale(1);
+  }
+  45% {
+    transform: translateY(-14px) scale(0.45);
+  }
+  60% {
+    transform: translateY(-72px) scale(0.45);
+  }
+  80% {
+    transform: translateY(-72px) scale(0.45);
+  }
+  100% {
+    transform: translateY(0px) scale(1);
+  }
+}
+
+@keyframes rotateMove {
+  55% {
+    transform: rotate(0deg);
+  }
+  80% {
+    transform: rotate(360deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes stackOrder {
+  0%,
+  100% {
+    z-index: 3;
+  }
+  33.3% {
+    z-index: 2;
+  }
+  66.6% {
+    z-index: 1;
+  }
+}

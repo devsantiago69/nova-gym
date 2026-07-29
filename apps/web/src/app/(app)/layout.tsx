@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Script from "next/script";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@gymchallenge/database";
@@ -64,14 +65,18 @@ export default async function AppLayout({
     },
     { "--primary": accentColor.hex } as Record<string, string>,
   );
-  const accentScript = `document.documentElement.style.cssText+=";${Object.entries(accentColor.palette).map(([s, h]) => `--color-lime-${s}:${h}`).join(";")};--primary:${accentColor.hex}"`;
+  const accentScript = Object.entries(accentColor.palette)
+    .map(([s, h]) => `--color-lime-${s}:${h}`)
+    .join(";");
   return (
     <div
       className="nova-app min-h-screen"
       data-app-font={profile?.fontFamily ?? "nova"}
       style={accentStyle as React.CSSProperties}
     >
-      <script dangerouslySetInnerHTML={{ __html: accentScript }} />
+      <Script id="accent-vars" strategy="beforeInteractive">
+        {`document.documentElement.style.cssText+=";${accentScript};--primary:${accentColor.hex}"`}
+      </Script>
       <LocaleRuntime locale={locale} />
       <LocationConsent
         preference={profile?.attendanceLocationEnabled ?? null}
