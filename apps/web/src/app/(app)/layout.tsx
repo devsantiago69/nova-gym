@@ -13,6 +13,9 @@ import { LocaleRuntime } from "@/components/i18n/locale-runtime";
 import { resolveAppLocale } from "@/lib/i18n/locale";
 import { appConfig } from "@gymchallenge/config";
 import { getAccentColor } from "@/lib/colors/accent-colors";
+import { grantXp } from "@/modules/gamification/xp";
+import { xpValue, XP_DAILY_USAGE_DEFAULT } from "@/modules/gamification/constants";
+import { createNotification } from "@/modules/notifications/service";
 export default async function AppLayout({
   children,
 }: {
@@ -52,6 +55,30 @@ export default async function AppLayout({
       orderBy: { startsAt: "desc" },
     }),
   ]);
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const dailyXp = await xpValue("xp_daily_usage", XP_DAILY_USAGE_DEFAULT);
+    const dailyResult = await grantXp(prisma, {
+      userId: s.user.id,
+      amount: dailyXp,
+      type: "DAILY_USAGE",
+      sourceType: "AppUsage",
+      description: "Uso diario de la app",
+      idempotencyKey: `xp:daily:${s.user.id}:${today}`,
+    });
+    if (dailyResult.granted) {
+      await createNotification({
+        userId: s.user.id,
+        type: "XP_EARNED",
+        title: `+${dailyXp} XP`,
+        body: "Ganaste experiencia por usar la app hoy",
+        href: "/perfil",
+        dedupeKey: `xp:daily:notif:${s.user.id}:${today}`,
+      });
+    }
+  } catch (error) {
+    console.error("[layout] daily xp grant failed", error);
+  }
   const locale = resolveAppLocale(profile ?? {});
   const displayName =
     `${profile?.firstName ?? ""} ${profile?.lastName ?? ""}`.trim() ||

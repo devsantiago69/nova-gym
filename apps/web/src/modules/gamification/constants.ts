@@ -34,6 +34,6 @@ export const XP_ATTENDANCE_DEFAULT = 25;
 export const XP_CHALLENGE_COMPLETED_DEFAULT = 150;
 export const XP_STREAK_CLAIM_DEFAULT = 40;
 export const XP_AD_WATCH_DEFAULT = 20;
-export const XP_DAILY_USAGE_DEFAULT = 10;
+export const XP_DAILY_USAGE_DEFAULT = 15;
 export const AD_MIN_WATCH_SECONDS_DEFAULT = 15;
 export const AD_XP_DAILY_LIMIT_DEFAULT = 6;
