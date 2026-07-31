@@ -249,7 +249,10 @@ export function NotificationCenter() {
     ? createPortal(
         <div className="fixed inset-x-3 top-[max(.75rem,env(safe-area-inset-top))] z-[140] mx-auto flex max-w-sm items-start gap-3 rounded-2xl border border-lime-400/30 bg-[#0a1322]/95 p-3 shadow-2xl shadow-black/60 backdrop-blur-xl sm:inset-x-auto sm:right-5 sm:w-96">
           <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-lime-400 text-slate-950">
-            <BellRing size={20} />
+            {(() => {
+              const ToastIcon = iconByType[toast.type] ?? BellRing;
+              return <ToastIcon size={20} />;
+            })()}
           </span>
           <button
             type="button"
