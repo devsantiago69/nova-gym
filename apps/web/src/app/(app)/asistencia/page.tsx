@@ -6,6 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { resolveAppLocale } from "@/lib/i18n/locale";
 import { activePlanEntitlements } from "@/modules/plans/entitlements";
 import { canChooseAttendancePhotoFromDevice } from "@/modules/plans/attendance-photo-policy";
+import { weekRange } from "@/lib/week";
 
 function dateInTimezone(timezone: string) {
   return new Intl.DateTimeFormat("en-CA", {
@@ -19,7 +20,20 @@ function dateInTimezone(timezone: string) {
 export default async function Page() {
   const session = await getServerSession(authOptions);
   const userId = session!.user.id;
-  const [rows, profile, sharedEvents, currentUser, activePlan, restDays, activeChallengeMemberships] = await Promise.all([
+  const profile = await prisma.userProfile.findUnique({
+    where: { userId },
+    select: {
+      firstName: true,
+      timezone: true,
+      locale: true,
+      localeAuto: true,
+      storyDurationSeconds: true,
+      avatarKey: true,
+      attendanceLocationEnabled: true,
+    },
+  });
+  const { start: weekStart, end: weekEnd } = weekRange(profile?.timezone ?? "America/Bogota");
+  const [rows, sharedEvents, currentUser, activePlan, restDays, activeChallengeMemberships] = await Promise.all([
     prisma.attendance.findMany({
       where: { userId },
       include: {
@@ -28,18 +42,6 @@ export default async function Page() {
       },
       orderBy: { localDate: "desc" },
       take: 370,
-    }),
-    prisma.userProfile.findUnique({
-      where: { userId },
-      select: {
-        firstName: true,
-        timezone: true,
-        locale: true,
-        localeAuto: true,
-        storyDurationSeconds: true,
-        avatarKey: true,
-        attendanceLocationEnabled: true,
-      },
     }),
     prisma.challengeScoreEvent.findMany({
       where: {
@@ -106,8 +108,11 @@ export default async function Page() {
       select: {
         challenge: {
           select: {
-            restDaysAllowed: true,
-            restDays: { where: { userId }, select: { id: true } },
+            restDaysPerWeek: true,
+            restDays: {
+              where: { userId, localDate: { gte: weekStart, lt: weekEnd } },
+              select: { id: true },
+            },
           },
         },
       },
@@ -182,7 +187,7 @@ export default async function Page() {
         canChooseFromDevice={canChooseAttendancePhotoFromDevice(activePlan?.code)}
         planName={activePlan?.name ?? "Free"}
         initialRestDays={restDays.map((item) => item.localDate.toISOString().slice(0, 10))}
-        restDaysRemaining={activeChallengeMemberships.length > 0 ? Math.min(...activeChallengeMemberships.map((item) => Math.max(0, item.challenge.restDaysAllowed - item.challenge.restDays.length))) : 0}
+        restDaysRemaining={activeChallengeMemberships.length > 0 ? Math.min(...activeChallengeMemberships.map((item) => Math.max(0, item.challenge.restDaysPerWeek - item.challenge.restDays.length))) : 0}
         hasActiveChallenges={activeChallengeMemberships.length > 0}
         todayKey={dateInTimezone(timezone)}
         initial={rows.map((row) => ({

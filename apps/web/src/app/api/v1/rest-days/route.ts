@@ -2,20 +2,7 @@ import { getServerSession } from "next-auth";
 import { prisma } from "@gymchallenge/database";
 import { authOptions } from "@/lib/auth";
 import { fail, ok } from "@/lib/api-response";
-
-function localDate(timezone: string) {
-  const key = new Intl.DateTimeFormat("en-CA", {
-    timeZone: timezone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-  return new Date(`${key}T00:00:00.000Z`);
-}
-
-function addDays(date: Date, days: number) {
-  return new Date(date.getTime() + days * 86_400_000);
-}
+import { addDays, localDateInTimezone, weekRange } from "@/lib/week";
 
 export async function POST() {
   const session = await getServerSession(authOptions);
@@ -25,7 +12,9 @@ export async function POST() {
     where: { userId: session.user.id },
     select: { timezone: true },
   });
-  const today = localDate(profile?.timezone ?? "America/Bogota");
+  const timezone = profile?.timezone ?? "America/Bogota";
+  const today = localDateInTimezone(timezone);
+  const { start: weekStart, end: weekEnd } = weekRange(timezone);
   const now = new Date();
   const [attendance, activeMemberships, existingToday, adjacent] =
     await Promise.all([
@@ -47,7 +36,7 @@ export async function POST() {
         },
         select: {
           challenge: {
-            select: { id: true, name: true, restDaysAllowed: true },
+            select: { id: true, name: true, restDaysPerWeek: true },
           },
         },
       }),
@@ -92,18 +81,22 @@ export async function POST() {
     activeMemberships.map(async ({ challenge }) => ({
       challenge,
       used: await prisma.challengeRestDay.count({
-        where: { challengeId: challenge.id, userId: session.user.id },
+        where: {
+          challengeId: challenge.id,
+          userId: session.user.id,
+          localDate: { gte: weekStart, lt: weekEnd },
+        },
       }),
     })),
   );
   const exhausted = usages.find(
     ({ challenge, used }) =>
-      pendingIds.has(challenge.id) && used >= challenge.restDaysAllowed,
+      pendingIds.has(challenge.id) && used >= challenge.restDaysPerWeek,
   );
   if (exhausted)
     return fail(
       "REST_LIMIT_REACHED",
-      `Ya utilizaste los ${exhausted.challenge.restDaysAllowed} descansos permitidos en “${exhausted.challenge.name}”.`,
+      `Ya utilizaste los ${exhausted.challenge.restDaysPerWeek} descansos semanales de “${exhausted.challenge.name}”. Se renuevan el próximo lunes.`,
       409,
     );
 
@@ -126,7 +119,7 @@ export async function POST() {
         ...usages.map(({ challenge, used }) =>
           Math.max(
             0,
-            challenge.restDaysAllowed -
+            challenge.restDaysPerWeek -
               used -
               (pendingIds.has(challenge.id) ? 1 : 0),
           ),
@@ -145,7 +138,7 @@ export async function DELETE() {
     where: { userId: session.user.id },
     select: { timezone: true },
   });
-  const today = localDate(profile?.timezone ?? "America/Bogota");
+  const today = localDateInTimezone(profile?.timezone ?? "America/Bogota");
   const result = await prisma.challengeRestDay.deleteMany({
     where: { userId: session.user.id, localDate: today },
   });

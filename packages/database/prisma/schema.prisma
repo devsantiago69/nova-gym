@@ -763,7 +763,7 @@ model Challenge {
   description         String                      @default("") @db.VarChar(1000)
   modality            ChallengeModality           @default(HEAD_TO_HEAD)
   durationDays        Int                         @default(1) @map("duration_days")
-  restDaysAllowed     Int                         @default(2) @map("rest_days_allowed")
+  restDaysPerWeek     Int                         @default(2) @map("rest_days_per_week")
   timezone            String                      @default("America/Bogota") @db.VarChar(80)
   targetValue         Int                         @default(1) @map("target_value")
   targetUnit          String                      @default("attendances") @map("target_unit") @db.VarChar(50)

@@ -626,10 +626,13 @@ export function AttendanceManager({
           </div>
           <div className="mt-7 flex flex-wrap gap-3 text-xs font-bold text-slate-300">
             <span className="rounded-full border border-cyan-300/15 bg-cyan-300/10 px-3 py-2">
-              {restDaysRemaining} descansos disponibles después de hoy
+              {restDaysRemaining} descansos disponibles esta semana
             </span>
             <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2">
               No se permiten días consecutivos
+            </span>
+            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2">
+              Se renuevan cada lunes
             </span>
           </div>
           {message && (
@@ -707,8 +710,8 @@ export function AttendanceManager({
                         <strong className="text-lg">¿Tu cuerpo pide pausa?</strong>
                         <p className="mt-1 max-w-lg text-sm leading-relaxed text-slate-300">
                           Usa un día de recuperación para todos tus retos. Tienes
-                          <b className="text-cyan-200"> {restDaysRemaining} disponibles</b>
-                          ; no pueden ser consecutivos.
+                          <b className="text-cyan-200"> {restDaysRemaining} disponibles esta semana</b>
+                          ; no pueden ser consecutivos y se renuevan cada lunes.
                         </p>
                       </div>
                     </div>
@@ -723,7 +726,7 @@ export function AttendanceManager({
                         ? "Guardando…"
                         : restDaysRemaining > 0
                           ? "Marcar descanso"
-                          : "Descansos agotados"}
+                          : "Sin descansos esta semana"}
                     </button>
                   </div>
                 </div>
